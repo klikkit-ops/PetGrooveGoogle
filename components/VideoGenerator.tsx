@@ -1,21 +1,12 @@
 import React, { useState, useContext, useRef, useEffect, useCallback } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { DANCES, VIDEO_GENERATION_MESSAGES } from '../constants';
-import { generateDancingPetVideo } from '../services/geminiService';
+import { generateDancingPetVideo } from '../services/runwayService';
+import { enhancePromptWithOpenAI } from '../services/openaiService';
 import Spinner from './Spinner';
 import { UploadIcon } from './Icons';
 
-// FIX: Resolve window.aistudio type conflict by defining and using a named AIStudio interface.
-interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-}
-
-declare global {
-    interface Window {
-        aistudio: AIStudio;
-    }
-}
+// Removed AIStudio interface - no longer needed with RunwayML
 
 const VideoGenerator: React.FC = () => {
     const context = useContext(AppContext);
@@ -31,10 +22,9 @@ const VideoGenerator: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const checkApiKey = useCallback(async () => {
-        if (window.aistudio) {
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            setApiKeySelected(hasKey);
-        }
+        // Check if RunwayML API key is configured
+        const runwayKey = import.meta.env.VITE_RUNWAY_API_KEY;
+        setApiKeySelected(!!runwayKey);
     }, []);
 
     useEffect(() => {
@@ -70,10 +60,12 @@ const VideoGenerator: React.FC = () => {
     };
     
     const handleSelectApiKey = async () => {
-        if (window.aistudio) {
-            await window.aistudio.openSelectKey();
-            // Assume success after opening dialog to avoid race condition
+        // Check if API key is now available
+        const runwayKey = import.meta.env.VITE_RUNWAY_API_KEY;
+        if (runwayKey) {
             setApiKeySelected(true);
+        } else {
+            setError('RunwayML API key not found. Please set VITE_RUNWAY_API_KEY in your environment variables.');
         }
     };
 
@@ -90,7 +82,19 @@ const VideoGenerator: React.FC = () => {
         useCredit();
 
         try {
-            const videoUrl = await generateDancingPetVideo(imageFile, selectedDance);
+            // Optionally enhance prompt with OpenAI
+            let enhancedPrompt: string | undefined;
+            try {
+                enhancedPrompt = await enhancePromptWithOpenAI(
+                    `An 8-second video of this pet dancing '${selectedDance}' in a fun, colorful setting.`,
+                    selectedDance
+                );
+            } catch (promptError) {
+                // If prompt enhancement fails, continue with base prompt
+                console.warn('Prompt enhancement failed, using base prompt:', promptError);
+            }
+            
+            const videoUrl = await generateDancingPetVideo(imageFile, selectedDance, enhancedPrompt);
             setGeneratedVideoUrl(videoUrl);
             addVideo({
                 id: new Date().toISOString(),
@@ -104,8 +108,8 @@ const VideoGenerator: React.FC = () => {
              if (err instanceof Error) {
                  errorMessage = err.message;
              }
-             if (errorMessage.includes("Requested entity was not found.")) {
-                 errorMessage = "Your API key is invalid. Please select a valid key.";
+             if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("invalid")) {
+                 errorMessage = "Your RunwayML API key is invalid. Please check your VITE_RUNWAY_API_KEY environment variable.";
                  setApiKeySelected(false); // Reset key state
              }
              setError(errorMessage);
@@ -149,13 +153,13 @@ const VideoGenerator: React.FC = () => {
                     {!apiKeySelected ? (
                         <div className="text-center p-4 bg-yellow-900/50 border border-yellow-500 rounded-lg">
                              <p className="mb-3 font-semibold">API Key Required</p>
-                             <p className="text-sm mb-4">Please select your API key to enable video generation. This is a mandatory step for using Veo models.</p>
-                             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-sm text-brand-yellow hover:underline mb-4 block">Learn about billing</a>
-                            <button
-                                onClick={handleSelectApiKey}
+                             <p className="text-sm mb-4">Please configure your RunwayML API key in environment variables to enable video generation.</p>
+                             <a href="https://docs.runwayml.com/" target="_blank" rel="noopener noreferrer" className="text-sm text-brand-yellow hover:underline mb-4 block">Learn about RunwayML API</a>
+                             <button
+                                onClick={() => setApiKeySelected(true)}
                                 className="w-full bg-brand-yellow text-brand-bg font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity"
                             >
-                                Select API Key
+                                I've Set Up My API Key
                             </button>
                         </div>
                     ) : (

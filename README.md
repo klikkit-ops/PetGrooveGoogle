@@ -1,6 +1,6 @@
 # Pet Dance Party - Deployment Guide
 
-This is a React + Vite application that generates dancing pet videos using Google's Gemini API. This guide will walk you through deploying to Vercel and setting up Supabase and Stripe integration.
+This is a React + Vite application that generates dancing pet videos using RunwayML for video generation and OpenAI for prompt enhancement. This guide will walk you through deploying to Vercel and setting up Supabase and Stripe integration.
 
 ## Prerequisites
 
@@ -27,8 +27,10 @@ This is a React + Vite application that generates dancing pet videos using Googl
 
 3. **Create a `.env` file in the root directory:**
    ```bash
-   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   VITE_RUNWAY_API_KEY=your_runway_api_key_here
+   VITE_OPENAI_API_KEY=your_openai_api_key_here
    ```
+   Note: OpenAI API key is optional but recommended for enhanced prompts.
 
 4. **Run the development server:**
    ```bash
@@ -79,9 +81,13 @@ This is a React + Vite application that generates dancing pet videos using Googl
 
 5. **Add Environment Variables:**
    - Click "Environment Variables"
-   - Add the following:
+   - Add the following (required):
      ```
-     VITE_GEMINI_API_KEY = your_gemini_api_key_here
+     VITE_RUNWAY_API_KEY = your_runway_api_key_here
+     ```
+   - Add the following (optional but recommended):
+     ```
+     VITE_OPENAI_API_KEY = your_openai_api_key_here
      ```
    - Click "Save"
 
@@ -95,6 +101,77 @@ This is a React + Vite application that generates dancing pet videos using Googl
 - Visit your deployment URL
 - Check that the app loads correctly
 - Test video generation functionality
+
+---
+
+## 🎬 Setting Up RunwayML API
+
+### Step 1: Create a RunwayML Account
+
+1. **Go to [RunwayML Developer Platform](https://docs.runwayml.com/)**
+
+2. **Sign up or log in to your account**
+
+3. **Navigate to API Keys section**
+
+4. **Generate a new API key:**
+   - Click "Create API Key" or "Generate New Key"
+   - Copy the API key (starts with `rw_...` or similar)
+   - **Important:** Save this key securely, as you won't be able to see it again
+
+### Step 2: Add RunwayML API Key to Vercel
+
+1. **Go to your Vercel project → Settings → Environment Variables**
+
+2. **Add the following:**
+   ```
+   VITE_RUNWAY_API_KEY = your_runway_api_key_here
+   ```
+
+3. **Redeploy your project** after adding the environment variable
+
+### Step 3: Test RunwayML Integration
+
+- Visit your app and try generating a video
+- Check the browser console for any API errors
+- Verify that video generation completes successfully
+
+**Note:** If you encounter API errors, you may need to verify the RunwayML API endpoints and request format in their official documentation. The implementation uses standard REST API patterns, but exact endpoints may vary based on RunwayML's current API version.
+
+---
+
+## 🤖 Setting Up OpenAI API (Optional but Recommended)
+
+### Step 1: Create an OpenAI Account
+
+1. **Go to [OpenAI Platform](https://platform.openai.com/)**
+
+2. **Sign up or log in**
+
+3. **Add billing information** (OpenAI requires a payment method)
+
+4. **Navigate to API Keys:**
+   - Go to https://platform.openai.com/api-keys
+   - Click "Create new secret key"
+   - Copy the API key (starts with `sk-...`)
+   - **Important:** Save this key securely
+
+### Step 2: Add OpenAI API Key to Vercel
+
+1. **Go to your Vercel project → Settings → Environment Variables**
+
+2. **Add the following:**
+   ```
+   VITE_OPENAI_API_KEY = your_openai_api_key_here
+   ```
+
+3. **Redeploy your project** after adding the environment variable
+
+### Step 3: Understanding OpenAI Usage
+
+- **Purpose:** OpenAI is used to enhance video generation prompts for better results
+- **Cost:** Uses GPT-4o-mini (cost-effective model) - approximately $0.0015 per request
+- **Fallback:** If OpenAI key is not set, the app will use base prompts (still functional)
 
 ---
 
@@ -197,7 +274,8 @@ CREATE POLICY "Users can view own credits" ON credits
 
 3. **Update your local `.env` file:**
    ```
-   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   VITE_RUNWAY_API_KEY=your_runway_api_key_here
+   VITE_OPENAI_API_KEY=your_openai_api_key_here
    VITE_SUPABASE_URL=your_supabase_project_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
@@ -263,7 +341,8 @@ CREATE POLICY "Users can view own credits" ON credits
 
 4. **Update your local `.env` file:**
    ```
-   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   VITE_RUNWAY_API_KEY=your_runway_api_key_here
+   VITE_OPENAI_API_KEY=your_openai_api_key_here
    VITE_SUPABASE_URL=your_supabase_project_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
@@ -277,7 +356,8 @@ CREATE POLICY "Users can view own credits" ON credits
 
 | Variable Name | Description | Where to Get It |
 |--------------|-------------|----------------|
-| `VITE_GEMINI_API_KEY` | Google Gemini API key | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `VITE_RUNWAY_API_KEY` | RunwayML API key | [RunwayML Developer Platform](https://docs.runwayml.com/) |
+| `VITE_OPENAI_API_KEY` | OpenAI API key (optional) | [OpenAI Platform](https://platform.openai.com/api-keys) |
 | `VITE_SUPABASE_URL` | Supabase project URL | Supabase Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key | Supabase Dashboard → Settings → API |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | Stripe Dashboard → Developers → API keys |
@@ -348,8 +428,8 @@ CREATE POLICY "Users can view own credits" ON credits
 
 ### API Key Not Working:
 
-- **Verify environment variable name:** Must be `VITE_GEMINI_API_KEY` (with `VITE_` prefix)
-- **Check API key validity:** Test in Google AI Studio
+- **Verify environment variable names:** Must be `VITE_RUNWAY_API_KEY` and `VITE_OPENAI_API_KEY` (with `VITE_` prefix)
+- **Check API key validity:** Test your RunwayML key in their dashboard, OpenAI key in OpenAI dashboard
 - **Redeploy after changes:** Vercel requires a new deployment for env var changes
 
 ### Supabase Connection Issues:

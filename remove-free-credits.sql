@@ -4,7 +4,14 @@
 -- This updates the trigger to NOT grant free credits to new users
 -- ============================================
 
--- Update the database trigger function to remove free credits
+-- Step 1: Ensure RLS policy allows users to insert their own profile
+-- (This is needed as a fallback if trigger fails)
+DROP POLICY IF EXISTS "Users can insert own data" ON users;
+CREATE POLICY "Users can insert own data" ON users
+  FOR INSERT 
+  WITH CHECK (auth.uid()::text = id::text);
+
+-- Step 2: Update the database trigger function to remove free credits
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -13,7 +20,8 @@ BEGIN
   VALUES (
     NEW.id,
     NEW.email
-  );
+  )
+  ON CONFLICT (id) DO NOTHING; -- Prevent errors if profile already exists
   
   -- NOTE: No credits are granted - users start with 0 credits
   -- Users must subscribe/pay to obtain credits
@@ -22,7 +30,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- The trigger should already exist, but this ensures it's set up correctly
+-- Step 3: The trigger should already exist, but this ensures it's set up correctly
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users

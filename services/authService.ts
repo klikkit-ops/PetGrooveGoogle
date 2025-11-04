@@ -216,62 +216,26 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       .eq('id', authUser.id)
       .maybeSingle();
 
-    // If profile doesn't exist (e.g., first-time Google sign-in), create it
-    // But only if the error is "not found", not an RLS error
-    if ((profileError && profileError.code === 'PGRST116') || !profile) {
-      const email = authUser.email || '';
-
-      // Try to create the profile
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: authUser.id,
-          email: email,
-        });
-
-      if (insertError) {
-        console.error('Failed to create user profile (will be created by trigger):', insertError);
-        // If insert fails (likely RLS), wait a bit longer and try fetching again
-        // The trigger should have created it by now
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { data: retryProfile, error: retryError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .maybeSingle();
-        
-        if (retryProfile && !retryError) {
-          // Profile was created by trigger
-          return {
-            user: {
-              id: retryProfile.id,
-              email: retryProfile.email,
-              name: retryProfile.name || undefined,
-            },
-            error: null,
-          };
-        }
-        
-        // Still no profile - return error but don't block auth
-        // The profile will be created eventually by the trigger
-        return { user: null, error: new Error('User profile not found - trigger may still be creating it') };
-      }
-
-      // Return the newly created profile
+    // If profile exists, return it
+    if (profile && !profileError) {
       return {
         user: {
-          id: authUser.id,
-          email: email,
+          id: profile.id,
+          email: profile.email,
+          name: profile.name || undefined,
         },
         error: null,
       };
     }
 
+    // Profile doesn't exist yet - trigger should create it
+    // Return auth user info anyway so the app doesn't hang
+    // The profile will be available on next refresh or login
+    console.warn('Profile not found for user', authUser.id, '- trigger should create it. Returning auth user info.');
     return {
       user: {
-        id: profile.id,
-        email: profile.email,
-        name: profile.name || undefined,
+        id: authUser.id,
+        email: authUser.email || '',
       },
       error: null,
     };

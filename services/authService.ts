@@ -21,9 +21,113 @@ export interface UserProfile {
  */
 export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
-    // Sign up with Supabase Auth
+    // First, try to sign in with this email to check if account already exists
+    // This will tell us if the email is already registered
+    const { data: existingUser, error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password + '_check_123', // Use wrong password to check existence
+    });
+
+    // If sign-in returns "Invalid login credentials", the email exists
+    // If it returns "Email not confirmed" or similar, the email exists but isn't confirmed
+    // If it returns something else, we'll proceed with signup
+    if (signInError) {
+      const errorMsg = signInError.message?.toLowerCase() || '';
+      
+      // If the error indicates the email exists, prevent signup
+      if (errorMsg.includes('invalid login credentials') || 
+          errorMsg.includes('email not confirmed') ||
+          errorMsg.includes('incorrect') ||
+          errorMsg.includes('wrong password')) {
+        // Email exists - try to sign in with the actual password or show error
+        const { data: actualSignIn, error: actualError } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+        
+        if (actualSignIn?.user) {
+          // User exists and password is correct - they should sign in instead
+          return { 
+            user: null, 
+            error: new Error('An account with this email already exists. Please sign in instead.') 
+          };
+        } else {
+          // Email exists but password is wrong
+          return { 
+            user: null, 
+            error: new Error('An account with this email already exists. Please sign in instead.') 
+          };
+        }
+      }
+    } else if (existingUser?.user) {
+      // User exists and password matches - they should sign in instead
+      return { 
+        user: null, 
+        error: new Error('An account with this email already exists. Please sign in instead.') 
+      };
+    }
+
+    // Email doesn't exist, proceed with signup
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
+      password: data.password,
+    });
+
+    if (authError) {
+      // Check for duplicate email error - Supabase returns different error codes/messages
+      const errorMessage = authError.message?.toLowerCase() || '';
+      const errorCode = authError.status || authError.code || '';
+      
+      if (errorMessage.includes('already registered') || 
+          errorMessage.includes('already exists') ||
+          errorMessage.includes('already been registered') ||
+          errorMessage.includes('user already registered') ||
+          errorCode === 'email_already_exists' ||
+          errorCode === 'user_already_exists') {
+        return { 
+          user: null, 
+          error: new Error('An account with this email already exists. Please sign in instead.') 
+        };
+      }
+      
+      // Log the actual error for debugging
+      console.error('Supabase signup error:', {
+        message: authError.message,
+        status: authError.status,
+        code: authError.code,
+        error: authError
+      });
+      
+      return { user: null, error: authError };
+    }
+
+/**
+ * Sign up a new user
+ */
+export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
+  try {
+    // First, check if a user with this email already exists in our users table
+    // This prevents duplicate signups even if Supabase allows it
+    const normalizedEmail = data.email.toLowerCase().trim();
+    
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existingProfile && !checkError) {
+      // User already exists - prevent signup
+      console.warn('Attempted signup with existing email:', normalizedEmail);
+      return { 
+        user: null, 
+        error: new Error('An account with this email already exists. Please sign in instead.') 
+      };
+    }
+
+    // Sign up with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
       password: data.password,
     });
 
@@ -59,13 +163,30 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // IMPORTANT: Check if the user was actually created or if this is a duplicate
-    // Supabase might return a user object even if the email already exists in some cases
-    // We should verify by checking if we can get a session or if the user needs confirmation
+    // Double-check: After signup, verify no duplicate was created
+    // Wait a moment for the trigger to create the profile
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // If email confirmation is required and no session exists, this is likely a new unconfirmed user
-    // If email confirmation is disabled and we have a session, the user was created successfully
-    
+    const { data: profiles, error: verifyError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', normalizedEmail);
+
+    // If multiple profiles exist, this is a problem
+    if (!verifyError && profiles && profiles.length > 1) {
+      console.error('Duplicate user detected after signup:', {
+        newUserId: authData.user.id,
+        existingProfiles: profiles,
+        email: normalizedEmail
+      });
+      // Sign out the new user since a duplicate was created
+      await supabase.auth.signOut();
+      return { 
+        user: null, 
+        error: new Error('An account with this email already exists. Please sign in instead.') 
+      };
+    }
+
     // Check if email confirmation is required
     if (authData.user && !authData.session) {
       // Email confirmation required - return success with user info
@@ -73,7 +194,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return {
         user: {
           id: authData.user.id,
-          email: data.email,
+          email: normalizedEmail,
         },
         error: null,
       };
@@ -115,7 +236,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return {
         user: {
           id: authData.user.id,
-          email: data.email,
+          email: normalizedEmail,
         },
         error: null,
       };
@@ -124,7 +245,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     return {
       user: {
         id: authData.user.id,
-        email: data.email,
+        email: normalizedEmail,
       },
       error: null,
     };

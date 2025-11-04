@@ -3,6 +3,7 @@ import React, { useContext } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { View } from '../types';
 import { CreditIcon, LogoutIcon } from './Icons';
+import { BUILD_VERSION } from '../version';
 
 interface HeaderProps {
     currentView: View;
@@ -47,6 +48,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
                         </nav>
                     </div>
                     <div className="flex items-center space-x-4">
+                        <div className="hidden sm:flex items-center bg-brand-purple/20 px-2 py-1 rounded text-xs font-mono text-brand-yellow border border-brand-purple/30">
+                            <span>v{BUILD_VERSION}</span>
+                        </div>
                          <div className="flex items-center bg-brand-muted px-3 py-1.5 rounded-full text-sm">
                             <CreditIcon className="w-5 h-5 text-brand-yellow mr-2" />
                             <span className="font-bold">{credits}</span>

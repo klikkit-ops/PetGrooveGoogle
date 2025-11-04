@@ -1,15 +1,54 @@
-
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { CreditIcon } from './Icons';
+import { redirectToCheckout } from '../services/stripeService';
 
 const Account: React.FC = () => {
     const context = useContext(AppContext);
+    const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     if (!context) return null;
     const { user, credits, addCredits } = context;
 
-    // Subscription plans removed - now using inline subscription UI
+    // Check for success/cancel URL parameters
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('success') === 'true') {
+            setMessage({ type: 'success', text: 'Payment successful! Credits have been added to your account.' });
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // Reload credits after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else if (params.get('canceled') === 'true') {
+            setMessage({ type: 'error', text: 'Payment was canceled. No charges were made.' });
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    const handleSubscribe = async (plan: 'weekly' | 'annual') => {
+        if (!user) {
+            setMessage({ type: 'error', text: 'Please log in to subscribe.' });
+            return;
+        }
+
+        setIsLoading({ [plan]: true });
+        setMessage(null);
+
+        try {
+            await redirectToCheckout(plan, user.id, user.email);
+        } catch (error: any) {
+            console.error('Error redirecting to checkout:', error);
+            setMessage({ 
+                type: 'error', 
+                text: error.message || 'Failed to start checkout. Please try again.' 
+            });
+            setIsLoading({ [plan]: false });
+        }
+    };
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-slide-in-up">
@@ -36,6 +75,14 @@ const Account: React.FC = () => {
                 <h2 className="text-3xl font-bold mb-2 text-brand-pink">Subscribe & Generate</h2>
                 <p className="text-brand-muted mb-6">Each video generation requires 500 credits. Choose a plan that works for you!</p>
                 
+                {message && (
+                    <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-900/20 border border-green-500' : 'bg-red-900/20 border border-red-500'}`}>
+                        <p className={`text-sm font-semibold text-center ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                            {message.text}
+                        </p>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     {/* Weekly Plan */}
                     <div className="relative border-2 rounded-xl p-6 bg-gradient-to-br from-brand-purple/20 to-brand-pink/20 border-brand-purple">
@@ -63,10 +110,11 @@ const Account: React.FC = () => {
                             <p className="text-xs text-gray-500 mt-1">then US$7.99/week</p>
                         </div>
                         <button
-                            onClick={() => addCredits(1000)}
-                            className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                            onClick={() => handleSubscribe('weekly')}
+                            disabled={isLoading.weekly}
+                            className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Start 7-Day Trial
+                            {isLoading.weekly ? 'Loading...' : 'Start 7-Day Trial'}
                         </button>
                     </div>
 
@@ -96,10 +144,11 @@ const Account: React.FC = () => {
                             <p className="text-xs text-gray-500 mt-1">~US$5.83/month</p>
                         </div>
                         <button
-                            onClick={() => addCredits(48000)}
-                            className="w-full bg-brand-yellow text-brand-bg font-bold py-3 px-4 rounded-lg hover:bg-brand-yellow/90 transition-colors"
+                            onClick={() => handleSubscribe('annual')}
+                            disabled={isLoading.annual}
+                            className="w-full bg-brand-yellow text-brand-bg font-bold py-3 px-4 rounded-lg hover:bg-brand-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Select Annual
+                            {isLoading.annual ? 'Loading...' : 'Select Annual'}
                         </button>
                     </div>
                 </div>

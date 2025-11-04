@@ -35,58 +35,35 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // Wait a moment for the database trigger to create the user profile
-    // The trigger will automatically create the user profile in users table
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Fetch the created user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      // If profile wasn't created by trigger (trigger might not exist yet),
-      // try to create it manually as fallback
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: data.email,
-        });
-
-      if (insertError) {
-        console.error('Failed to create user profile:', insertError);
-        // Return a more descriptive error
-        const errorMessage = insertError.message || insertError.code || 'Database error saving new user';
-        return { 
-          user: null, 
-          error: new Error(`Failed to create user profile: ${errorMessage}. Please make sure the database trigger is set up correctly.`) 
-        };
-      }
+    // Wait for the database trigger to create the user profile
+    // The trigger should automatically create the user profile in users table
+    // Retry multiple times as the trigger might take a moment to execute
+    let profile = null;
+    let profileError = null;
+    const maxRetries = 5;
+    
+    for (let i = 0; i < maxRetries; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500 + (i * 200))); // Increasing delays
       
-      // Wait a moment and fetch the newly created profile
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const { data: newProfile, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
         .single();
         
-      if (fetchError || !newProfile) {
-        return { 
-          user: null, 
-          error: new Error(`User profile created but could not be retrieved: ${fetchError?.message || 'Unknown error'}`) 
-        };
+      if (data && !error) {
+        profile = data;
+        break;
       }
-      
-      return {
-        user: {
-          id: newProfile.id,
-          email: newProfile.email,
-        },
-        error: null,
+      profileError = error;
+    }
+
+    if (!profile) {
+      // Profile wasn't created by trigger after multiple retries
+      console.error('Failed to fetch user profile after retries:', profileError);
+      return { 
+        user: null, 
+        error: new Error(`User profile was not created automatically. Please check that the database trigger 'handle_new_user' is set up correctly. Error: ${profileError?.message || 'Profile not found'}`) 
       };
     }
 

@@ -64,12 +64,18 @@ export default async function handler(
       }
     }
 
-    // Use enhanced prompt if provided, otherwise create default
-    // CRITICAL: Prompt must emphasize pet is IDENTICAL to input image
-    // The pet should look exactly like the uploaded image, only performing the dance
-    // The prompt describes the dance movements while explicitly stating the pet maintains its original appearance
-    const finalPrompt = enhancedPrompt || 
-      `The exact pet from the input image, looking identical with the same appearance, performs the ${dance} dance. The pet's body moves in ${dance} style movements while maintaining its original appearance.`;
+    // Use enhanced prompt if provided, otherwise create simple movement-only default
+    // For image-to-video: image provides appearance, prompt only describes movement
+    // Based on RunwayML best practices: shorter, movement-focused prompts work better
+    
+    // Build final prompt - keep it SHORT and movement-focused
+    // RunwayML image-to-video best practice: shorter prompts (20-40 words) work better
+    // The image provides appearance, prompt only describes movement
+    let finalPrompt = enhancedPrompt || `The pet moves in ${dance} style movements.`;
+    
+    // Add minimal negative terms to prevent transformation (keep it short!)
+    // Append only essential exclusions to prevent hybrid/robotic transformations
+    finalPrompt = `${finalPrompt} No transformation, no robotic parts.`;
 
     try {
       // Create image-to-video generation task using veo3.1_fast model
@@ -82,13 +88,15 @@ export default async function handler(
       
       // The SDK examples show URLs, but data URLs might work
       // If this fails with image format error, we'll need to upload to a temporary URL first
+      // Note: Negative prompts are included in the main promptText since veo3.1_fast
+      // may not support a separate negativePrompt parameter
       const task = await client.imageToVideo
         .create({
           model: 'veo3.1_fast',
-          promptText: finalPrompt,
+          promptText: finalPrompt, // Includes negative terms to prevent transformation
           promptImage: image, // Data URL - SDK may accept this, or may need actual URL
           ratio: '720:1280', // Portrait format (720:1280) - supported by veo3.1_fast
-          duration: 8, // veo3.1_fast ONLY supports 8 seconds (not 5s or 10s like gen4_turbo)
+          duration: 8, // veo3.1_fast supports 4, 6, or 8 seconds
         })
         .waitForTaskOutput();
 

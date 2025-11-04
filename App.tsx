@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { User, GeneratedVideo, AppContextType, View } from './types';
 import { AppContext } from './contexts/AppContext';
 import Header from './components/Header';
@@ -17,7 +17,7 @@ const App: React.FC = () => {
     const [videos, setVideos] = useState<GeneratedVideo[]>([]);
     const [currentView, setCurrentView] = useState<View>('generate');
     const [loading, setLoading] = useState<boolean>(true);
-    const [isLoadingSession, setIsLoadingSession] = useState<boolean>(false);
+    const userRef = useRef<User | null>(null);
 
     // Load user data (videos and credits)
     const loadUserData = useCallback(async (userId: string) => {
@@ -68,13 +68,17 @@ const App: React.FC = () => {
                     if (!mounted) return;
                     
                     if (currentUser && !error) {
+                        userRef.current = currentUser;
                         setUser(currentUser);
                         await loadUserData(currentUser.id);
                     } else {
                         console.warn('Failed to get user profile:', error);
+                        userRef.current = null;
+                        setUser(null);
                     }
                 } else {
                     // No session
+                    userRef.current = null;
                     setUser(null);
                 }
             } catch (error) {
@@ -91,26 +95,30 @@ const App: React.FC = () => {
         // Listen for auth state changes (e.g., OAuth callback)
         // Only handle SIGNED_IN and SIGNED_OUT - ignore TOKEN_REFRESHED and INITIAL_SESSION
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // Only handle actual sign in/out events, ignore everything else
+            if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') {
+                return;
+            }
+            
             try {
-                // Only log important events
-                if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-                    console.log('Auth state changed:', event, session?.user?.id);
-                }
+                console.log('Auth state changed:', event, session?.user?.id);
                 
-                if (event === 'SIGNED_IN' && session?.user && !user) {
-                    // Only update if we don't already have a user
-                    // Don't set loading - let the app continue normally
-                    const { user: currentUser, error } = await getCurrentUser();
-                    if (currentUser && !error) {
-                        setUser(currentUser);
-                        await loadUserData(currentUser.id);
+                if (event === 'SIGNED_IN' && session?.user) {
+                    // Only update if we don't already have a user (check ref to avoid closure issues)
+                    if (!userRef.current) {
+                        const { user: currentUser, error } = await getCurrentUser();
+                        if (currentUser && !error) {
+                            userRef.current = currentUser;
+                            setUser(currentUser);
+                            await loadUserData(currentUser.id);
+                        }
                     }
                 } else if (event === 'SIGNED_OUT') {
+                    userRef.current = null;
                     setUser(null);
                     setCredits(0);
                     setVideos([]);
                 }
-                // Ignore TOKEN_REFRESHED and INITIAL_SESSION to prevent unnecessary reloads
             } catch (error) {
                 console.error('Error handling auth state change:', error);
             }
@@ -120,15 +128,17 @@ const App: React.FC = () => {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, [loadUserData, user]);
+    }, [loadUserData]);
 
     const handleLogin = useCallback((loggedInUser: User) => {
+        userRef.current = loggedInUser;
         setUser(loggedInUser);
         loadUserData(loggedInUser.id);
     }, [loadUserData]);
 
     const handleLogout = useCallback(async () => {
         await supabaseSignOut();
+        userRef.current = null;
         setUser(null);
         setCredits(0);
         setVideos([]);

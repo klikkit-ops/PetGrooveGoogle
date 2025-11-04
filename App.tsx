@@ -17,6 +17,7 @@ const App: React.FC = () => {
     const [videos, setVideos] = useState<GeneratedVideo[]>([]);
     const [currentView, setCurrentView] = useState<View>('generate');
     const [loading, setLoading] = useState<boolean>(true);
+    const [isLoadingSession, setIsLoadingSession] = useState<boolean>(false);
 
     // Load user data (videos and credits)
     const loadUserData = useCallback(async (userId: string) => {
@@ -86,14 +87,18 @@ const App: React.FC = () => {
 
         // Listen for auth state changes (e.g., OAuth callback)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // Prevent handling if we're already loading
+            if (isLoadingSession) {
+                return;
+            }
+            
             try {
                 console.log('Auth state changed:', event, session?.user?.id);
                 
                 if (event === 'SIGNED_IN' && session?.user) {
-                    // Don't set loading to true here - let the initial load handle it
-                    // Only update if we don't already have a user
+                    // Only update if we don't already have a user (to prevent duplicate loads)
                     if (!user) {
-                        setLoading(true);
+                        setIsLoadingSession(true);
                         // Wait a bit for the database trigger to create the profile
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         
@@ -104,31 +109,30 @@ const App: React.FC = () => {
                         } else {
                             console.error('Failed to get user after sign in:', error);
                         }
-                        setLoading(false);
+                        setIsLoadingSession(false);
                     }
                 } else if (event === 'SIGNED_OUT') {
                     setUser(null);
                     setCredits(0);
                     setVideos([]);
-                    setLoading(false);
-                } else if (event === 'TOKEN_REFRESHED') {
-                    // Refresh user data when token is refreshed
+                } else if (event === 'TOKEN_REFRESHED' && user) {
+                    // Only refresh if we have a user - silently refresh user data
                     const { user: currentUser, error } = await getCurrentUser();
                     if (currentUser && !error) {
                         setUser(currentUser);
-                        await loadUserData(currentUser.id);
                     }
                 }
             } catch (error) {
                 console.error('Error handling auth state change:', error);
-                setLoading(false);
+            } finally {
+                setIsLoadingSession(false);
             }
         });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [loadUserData]);
+    }, [loadUserData, user, isLoadingSession]);
 
     const handleLogin = useCallback((loggedInUser: User) => {
         setUser(loggedInUser);

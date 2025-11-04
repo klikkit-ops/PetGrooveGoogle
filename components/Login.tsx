@@ -69,7 +69,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </h1>
                 <p className="text-gray-300 mb-6">
                     {isSignUp
-                        ? 'Create an account to turn your furry friends into dancing stars. You'll get 3 free credits to start!'
+                        ? "Create an account to turn your furry friends into dancing stars. You'll get 3 free credits to start!"
                         : 'Sign in to continue creating amazing pet dance videos.'}
                 </p>
 

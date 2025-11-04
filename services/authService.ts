@@ -45,17 +45,20 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     for (let i = 0; i < maxRetries; i++) {
       await new Promise(resolve => setTimeout(resolve, 500 + (i * 200))); // Increasing delays
       
+      // Try to fetch the profile
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
         
       if (data && !error) {
         profile = data;
         break;
       }
-      profileError = error;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        profileError = error;
+      }
     }
 
     if (!profile) {
@@ -63,7 +66,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       console.error('Failed to fetch user profile after retries:', profileError);
       return { 
         user: null, 
-        error: new Error(`User profile was not created automatically. Please check that the database trigger 'handle_new_user' is set up correctly. Error: ${profileError?.message || 'Profile not found'}`) 
+        error: new Error(`User profile was not created automatically by the database trigger. Please check: 1) The trigger 'handle_new_user' exists and is enabled, 2) The trigger function has SECURITY DEFINER, 3) Check Supabase logs for trigger errors. Error: ${profileError?.message || 'Profile not found after retries'}`) 
       };
     }
 

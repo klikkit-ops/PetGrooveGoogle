@@ -80,8 +80,36 @@ CREATE TRIGGER on_auth_user_created
 -- FROM information_schema.triggers 
 -- WHERE trigger_name = 'on_auth_user_created';
 
--- Step 7: Test the trigger (optional - creates a test user in auth.users)
--- This will help verify the trigger is working
--- INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
--- VALUES (gen_random_uuid(), 'test@example.com', crypt('test123', gen_salt('bf')), NOW(), NOW(), NOW());
+-- Step 7: Verify the function and trigger are set up correctly
+-- Check function exists and has SECURITY DEFINER
+SELECT 
+  p.proname as function_name,
+  pg_get_functiondef(p.oid) as function_definition
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public' 
+  AND p.proname = 'handle_new_user';
+
+-- Check trigger exists and is enabled
+SELECT 
+  t.tgname as trigger_name,
+  c.relname as table_name,
+  pg_get_triggerdef(t.oid) as trigger_definition
+FROM pg_trigger t
+JOIN pg_class c ON t.tgrelid = c.oid
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE n.nspname = 'auth'
+  AND c.relname = 'users'
+  AND t.tgname = 'on_auth_user_created';
+
+-- Step 8: If trigger still doesn't work, check if there are any existing users without profiles
+-- This query will help identify if the trigger is failing
+SELECT 
+  au.id,
+  au.email,
+  CASE WHEN pu.id IS NULL THEN 'MISSING PROFILE' ELSE 'OK' END as profile_status
+FROM auth.users au
+LEFT JOIN public.users pu ON au.id = pu.id
+ORDER BY au.created_at DESC
+LIMIT 10;
 

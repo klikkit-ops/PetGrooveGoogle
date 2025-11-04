@@ -238,6 +238,9 @@ CREATE POLICY "Users can view own data" ON users
 CREATE POLICY "Users can insert own data" ON users
   FOR INSERT WITH CHECK (auth.uid()::text = id::text);
 
+CREATE POLICY "Users can update own data" ON users
+  FOR UPDATE USING (auth.uid()::text = id::text);
+
 CREATE POLICY "Users can view own videos" ON videos
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
@@ -246,6 +249,33 @@ CREATE POLICY "Users can insert own videos" ON videos
 
 CREATE POLICY "Users can view own credits" ON credits
   FOR SELECT USING (auth.uid()::text = user_id::text);
+
+CREATE POLICY "Users can insert own credits" ON credits
+  FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+
+-- Create a function to handle new user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email, name)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1))
+  );
+  
+  -- Grant initial free credits
+  INSERT INTO public.credits (user_id, amount, source)
+  VALUES (NEW.id, 3, 'free');
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to automatically create user profile on signup
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
 
 ### Step 3: Get Supabase Credentials

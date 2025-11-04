@@ -23,9 +23,15 @@ export interface UserProfile {
 export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
     // Sign up with Supabase Auth
+    // Pass name in metadata so the trigger can use it
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
+      options: {
+        data: {
+          name: data.name,
+        },
+      },
     });
 
     if (authError) {
@@ -36,33 +42,43 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // Create user profile in users table
-    const { error: profileError } = await supabase
+    // Wait a moment for the database trigger to create the user profile
+    // The trigger will automatically:
+    // 1. Create the user profile in users table
+    // 2. Grant 3 free credits
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Fetch the created user profile
+    const { data: profile, error: profileError } = await supabase
       .from('users')
-      .insert({
-        id: authData.user.id,
-        email: data.email,
-        name: data.name,
-      });
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
 
-    if (profileError) {
-      // If profile creation fails, try to delete the auth user (optional cleanup)
-      console.error('Failed to create user profile:', profileError);
-      return { user: null, error: profileError };
-    }
+    if (profileError || !profile) {
+      // If profile wasn't created by trigger (trigger might not exist yet),
+      // try to create it manually as fallback
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: data.email,
+          name: data.name,
+        });
 
-    // Grant initial free credits
-    const { error: creditsError } = await supabase
-      .from('credits')
-      .insert({
-        user_id: authData.user.id,
-        amount: 3,
-        source: 'free',
-      });
+      if (insertError) {
+        console.error('Failed to create user profile:', insertError);
+        return { user: null, error: insertError };
+      }
 
-    if (creditsError) {
-      console.error('Failed to grant initial credits:', creditsError);
-      // Don't fail the signup if credits fail, but log it
+      // Try to add credits if they weren't added by trigger
+      await supabase
+        .from('credits')
+        .insert({
+          user_id: authData.user.id,
+          amount: 3,
+          source: 'free',
+        });
     }
 
     return {

@@ -22,9 +22,31 @@ const VideoGenerator: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const checkApiKey = useCallback(async () => {
-        // API key is now server-side, so we always assume it's available
-        // The serverless function will handle API key validation
-        setApiKeySelected(true);
+        // Check if API key is configured server-side
+        try {
+            const response = await fetch('/api/check-api-key');
+            if (!response.ok) {
+                console.warn('Failed to check API key status');
+                setApiKeySelected(false);
+                return;
+            }
+            
+            const data = await response.json();
+            if (data.configured) {
+                setApiKeySelected(true);
+                setError(''); // Clear any previous errors
+            } else {
+                setApiKeySelected(false);
+                if (data.message) {
+                    setError(data.message);
+                }
+            }
+        } catch (err) {
+            console.error('Error checking API key:', err);
+            // If we can't check, assume it's not configured to be safe
+            setApiKeySelected(false);
+            setError('Unable to verify API key configuration. Please ensure RUNWAY_API_KEY is set in Vercel environment variables.');
+        }
     }, []);
 
     useEffect(() => {
@@ -60,8 +82,8 @@ const VideoGenerator: React.FC = () => {
     };
     
     const handleSelectApiKey = async () => {
-        // API key is configured server-side, so we can proceed
-        setApiKeySelected(true);
+        // Re-check API key when user clicks "I've Set Up My API Key"
+        await checkApiKey();
     };
 
     const handleGenerate = async () => {
@@ -98,14 +120,32 @@ const VideoGenerator: React.FC = () => {
             });
         } catch (err: any) {
             let errorMessage = 'An unknown error occurred.';
-             if (err instanceof Error) {
-                 errorMessage = err.message;
-             }
-             if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("invalid") || errorMessage.includes("API key not configured")) {
-                 errorMessage = "Your RunwayML API key is invalid or not configured. Please check your RUNWAY_API_KEY environment variable in Vercel (server-side, no VITE_ prefix).";
-                 setApiKeySelected(false); // Reset key state
-             }
-             setError(errorMessage);
+            if (err instanceof Error) {
+                errorMessage = err.message;
+            }
+            
+            // Check for API key related errors
+            const errorLower = errorMessage.toLowerCase();
+            if (errorLower.includes("401") || 
+                errorLower.includes("unauthorized") || 
+                errorLower.includes("invalid") || 
+                errorLower.includes("api key not configured") ||
+                errorLower.includes("authentication") ||
+                errorLower.includes("forbidden") ||
+                errorLower.includes("403")) {
+                errorMessage = "Your RunwayML API key is invalid or not configured. Please check your RUNWAY_API_KEY environment variable in Vercel (server-side, no VITE_ prefix). Make sure to redeploy after adding the environment variable.";
+                setApiKeySelected(false); // Reset key state
+                // Re-check API key status
+                await checkApiKey();
+            } else if (errorLower.includes("failed to generate video")) {
+                // Extract more specific error details if available
+                const match = errorMessage.match(/Failed to generate video: (.+)/);
+                if (match) {
+                    errorMessage = match[1];
+                }
+            }
+            
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -146,13 +186,21 @@ const VideoGenerator: React.FC = () => {
                     {!apiKeySelected ? (
                         <div className="text-center p-4 bg-yellow-900/50 border border-yellow-500 rounded-lg">
                              <p className="mb-3 font-semibold">API Key Required</p>
-                             <p className="text-sm mb-4">Please configure your RunwayML API key (RUNWAY_API_KEY) in Vercel environment variables to enable video generation.</p>
+                             <p className="text-sm mb-2">Please configure your RunwayML API key in Vercel environment variables to enable video generation.</p>
+                             <div className="text-xs text-yellow-300 mb-4 bg-yellow-900/30 p-3 rounded">
+                                <p className="font-semibold mb-1">Steps to configure:</p>
+                                <ol className="list-decimal list-inside text-left space-y-1">
+                                    <li>Go to your Vercel project → Settings → Environment Variables</li>
+                                    <li>Add: <code className="bg-black/50 px-1 rounded">RUNWAY_API_KEY</code> (no VITE_ prefix)</li>
+                                    <li>Redeploy your project after adding the variable</li>
+                                </ol>
+                             </div>
                              <a href="https://docs.dev.runwayml.com/" target="_blank" rel="noopener noreferrer" className="text-sm text-brand-yellow hover:underline mb-4 block">Learn about RunwayML API</a>
                              <button
                                 onClick={handleSelectApiKey}
                                 className="w-full bg-brand-yellow text-brand-bg font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity"
                             >
-                                I've Set Up My API Key
+                                I've Set Up My API Key - Check Again
                             </button>
                         </div>
                     ) : (

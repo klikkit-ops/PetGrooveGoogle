@@ -63,6 +63,28 @@ const Account: React.FC = () => {
                     Credits will be added to your account after successful payment processing.
                 </p>
             </div>
+
+            {/* Dev Tool: Add Credits (remove in production) */}
+            {import.meta.env.DEV && (
+                <div className="bg-yellow-900/20 border-2 border-yellow-500 p-6 rounded-xl">
+                    <h2 className="text-xl font-bold mb-4 text-yellow-400">🔧 Dev Tool: Add Test Credits</h2>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => addCredits(20)}
+                            className="bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
+                        >
+                            Add 20 Credits
+                        </button>
+                        <button
+                            onClick={() => addCredits(100)}
+                            className="bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
+                        >
+                            Add 100 Credits
+                        </button>
+                    </div>
+                    <p className="text-xs text-yellow-300 mt-2">This only works in development mode</p>
+                </div>
+            )}
         </div>
     );
 };

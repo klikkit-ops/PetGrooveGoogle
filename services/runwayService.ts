@@ -46,13 +46,9 @@ export const generateDancingPetVideo = async (
         throw new Error('Video generation completed but no video URL was returned.');
     }
 
-    // Download the video and convert to blob URL for display
-    const videoResponse = await fetch(result.videoUrl);
-    if (!videoResponse.ok) {
-        throw new Error(`Failed to fetch video (${videoResponse.status}): ${videoResponse.statusText}`);
-    }
-    
-    const blob = await videoResponse.blob();
-    return URL.createObjectURL(blob);
+    // Return the original RunwayML video URL (persistent)
+    // This URL will be saved to the database and can be accessed later
+    // If there are CORS issues when displaying, we can proxy it through our API
+    return result.videoUrl;
 };
 

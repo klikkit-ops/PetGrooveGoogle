@@ -27,42 +27,57 @@ export default async function handler(
       });
     }
 
-    // Set environment variable for SDK (it checks this first)
-    // Then also pass it explicitly to be safe
+    // Initialize RunwayML client
+    // According to docs: https://docs.dev.runwayml.com/
+    // SDK can be initialized with: new RunwayML() if RUNWAYML_API_SECRET env var is set
+    // OR: new RunwayML({ apiKey: 'key' })
+    // Set env var first, then initialize
     if (!process.env.RUNWAYML_API_SECRET) {
       process.env.RUNWAYML_API_SECRET = apiKey;
     }
 
-    // Initialize RunwayML client
-    // The SDK accepts apiKey option in constructor
     let client: RunwayML;
     try {
-      client = new RunwayML({ 
-        apiKey: apiKey,
-      });
+      // Try initializing with env var first (docs pattern)
+      client = new RunwayML();
       console.log('RunwayML client initialized successfully');
     } catch (initError: any) {
-      console.error('Failed to initialize RunwayML client:', initError);
-      return res.status(500).json({ 
-        error: 'Failed to initialize RunwayML client',
-        details: initError?.message || initError?.toString(),
-        stack: initError?.stack
-      });
+      // Fallback: try with explicit apiKey
+      try {
+        console.log('Retrying with explicit apiKey...');
+        client = new RunwayML({ apiKey: apiKey });
+        console.log('RunwayML client initialized with explicit apiKey');
+      } catch (fallbackError: any) {
+        console.error('Failed to initialize RunwayML client:', fallbackError);
+        return res.status(500).json({ 
+          error: 'Failed to initialize RunwayML client',
+          details: fallbackError?.message || fallbackError?.toString(),
+          stack: fallbackError?.stack
+        });
+      }
     }
 
     // Use enhanced prompt if provided, otherwise create default
     const finalPrompt = enhancedPrompt || 
-      `An 8-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
+      `A 5-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
 
     try {
       // Create image-to-video generation task using gen4_turbo model
+      // According to RunwayML docs: https://docs.dev.runwayml.com/
+      // - promptImage: accepts URL (examples show URLs, but SDK may accept data URLs)
+      // - duration: must be 5 or 10 seconds (gen4_turbo limitation)
+      // - ratio: valid formats are '1280:720', '720:1280', '1104:832', '832:1104', '960:960', '1584:672'
+      // - model: 'gen4_turbo'
+      
+      // The SDK examples show URLs, but data URLs might work
+      // If this fails with image format error, we'll need to upload to a temporary URL first
       const task = await client.imageToVideo
         .create({
           model: 'gen4_turbo',
           promptText: finalPrompt,
-          promptImage: image, // Base64 image string
-          ratio: '1:1',
-          duration: 8,
+          promptImage: image, // Data URL - SDK may accept this, or may need actual URL
+          ratio: '960:960', // Square format - valid for gen4_turbo
+          duration: 5, // gen4_turbo supports only 5 or 10 seconds (using 5 for cost)
         })
         .waitForTaskOutput();
 

@@ -18,43 +18,6 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<View>('generate');
     const [loading, setLoading] = useState<boolean>(true);
 
-    // Load user session on mount and handle auth state changes
-    useEffect(() => {
-        const loadUserSession = async () => {
-            setLoading(true);
-            const { user: currentUser, error } = await getCurrentUser();
-            
-            if (currentUser && !error) {
-                setUser(currentUser);
-                // Load user data
-                await loadUserData(currentUser.id);
-            }
-            
-            setLoading(false);
-        };
-
-        loadUserSession();
-
-        // Listen for auth state changes (e.g., OAuth callback)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
-                const { user: currentUser, error } = await getCurrentUser();
-                if (currentUser && !error) {
-                    setUser(currentUser);
-                    await loadUserData(currentUser.id);
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setCredits(0);
-                setVideos([]);
-            }
-        });
-
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [loadUserData]);
-
     // Load user data (videos and credits)
     const loadUserData = useCallback(async (userId: string) => {
         const [videosResult, creditsResult] = await Promise.all([
@@ -70,6 +33,51 @@ const App: React.FC = () => {
             setCredits(creditsResult.credits);
         }
     }, []);
+
+    // Load user session on mount and handle auth state changes
+    useEffect(() => {
+        const loadUserSession = async () => {
+            try {
+                setLoading(true);
+                const { user: currentUser, error } = await getCurrentUser();
+                
+                if (currentUser && !error) {
+                    setUser(currentUser);
+                    // Load user data
+                    await loadUserData(currentUser.id);
+                }
+            } catch (error) {
+                console.error('Error loading user session:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadUserSession();
+
+        // Listen for auth state changes (e.g., OAuth callback)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            try {
+                if (event === 'SIGNED_IN' && session?.user) {
+                    const { user: currentUser, error } = await getCurrentUser();
+                    if (currentUser && !error) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
+                    }
+                } else if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setCredits(0);
+                    setVideos([]);
+                }
+            } catch (error) {
+                console.error('Error handling auth state change:', error);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, [loadUserData]);
 
     const handleLogin = useCallback((loggedInUser: User) => {
         setUser(loggedInUser);

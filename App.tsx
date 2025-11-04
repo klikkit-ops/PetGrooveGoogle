@@ -9,6 +9,7 @@ import MyVideos from './components/MyVideos';
 import Account from './components/Account';
 import { getCurrentUser, signOut as supabaseSignOut } from './services/authService';
 import { getUserVideos, getUserCredits, saveVideo, addUserCredits, useUserCredit } from './services/databaseService';
+import { supabase } from './services/supabaseClient';
 
 const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -17,7 +18,7 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<View>('generate');
     const [loading, setLoading] = useState<boolean>(true);
 
-    // Load user session on mount
+    // Load user session on mount and handle auth state changes
     useEffect(() => {
         const loadUserSession = async () => {
             setLoading(true);
@@ -33,7 +34,26 @@ const App: React.FC = () => {
         };
 
         loadUserSession();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+        // Listen for auth state changes (e.g., OAuth callback)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                const { user: currentUser, error } = await getCurrentUser();
+                if (currentUser && !error) {
+                    setUser(currentUser);
+                    await loadUserData(currentUser.id);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setCredits(0);
+                setVideos([]);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, [loadUserData]);
 
     // Load user data (videos and credits)
     const loadUserData = useCallback(async (userId: string) => {

@@ -143,6 +143,32 @@ export const signIn = async (data: SignInData): Promise<{ user: UserProfile | nu
 };
 
 /**
+ * Sign in with Google OAuth
+ */
+export const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}`,
+      },
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    // OAuth redirect will happen, so we return success
+    // The actual sign-in will be handled by the redirect callback
+    return { error: null };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error : new Error('Unknown error during Google sign in'),
+    };
+  }
+};
+
+/**
  * Sign out the current user
  */
 export const signOut = async (): Promise<{ error: Error | null }> => {
@@ -174,8 +200,43 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       .eq('id', authUser.id)
       .single();
 
+    // If profile doesn't exist (e.g., first-time Google sign-in), create it
     if (profileError || !profile) {
-      return { user: null, error: profileError || new Error('User profile not found') };
+      const name = authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+      const email = authUser.email || '';
+
+      // Try to create the profile
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: authUser.id,
+          email: email,
+          name: name,
+        });
+
+      if (insertError) {
+        console.error('Failed to create user profile:', insertError);
+        return { user: null, error: insertError };
+      }
+
+      // Try to add credits if they weren't added by trigger
+      await supabase
+        .from('credits')
+        .insert({
+          user_id: authUser.id,
+          amount: 3,
+          source: 'free',
+        });
+
+      // Return the newly created profile
+      return {
+        user: {
+          id: authUser.id,
+          email: email,
+          name: name,
+        },
+        error: null,
+      };
     }
 
     return {

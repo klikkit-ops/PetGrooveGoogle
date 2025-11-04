@@ -88,8 +88,8 @@ const VideoGenerator: React.FC = () => {
 
     const handleGenerate = async () => {
         if (!imageFile || !apiKeySelected) return;
-        if (credits <= 0) {
-            setError('You have no credits left! Please buy more in the Account section.');
+        if (credits < 500) {
+            setError(`You need 500 credits to generate a video. You currently have ${credits} credits. Please subscribe or purchase credits in the Account section.`);
             return;
         }
 
@@ -206,10 +206,10 @@ const VideoGenerator: React.FC = () => {
                     ) : (
                         <button
                             onClick={handleGenerate}
-                            disabled={!imageFile || isLoading || credits <= 0}
+                            disabled={!imageFile || isLoading || credits < 500}
                             className="w-full bg-gradient-to-r from-brand-purple to-brand-pink text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
                         >
-                            {isLoading ? 'Generating...' : `Generate Video (1 Credit)`}
+                            {isLoading ? 'Generating...' : `Generate Video (500 Credits)`}
                         </button>
                     )}
                 </div>

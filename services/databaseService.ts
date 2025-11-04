@@ -105,23 +105,23 @@ export const addUserCredits = async (
 };
 
 /**
- * Use a credit (decrement by 1)
+ * Use credits for video generation (deduct 500 credits)
  * This is done by adding a negative credit entry
  */
 export const useUserCredit = async (userId: string): Promise<{ error: Error | null }> => {
   try {
-    // Check if user has credits
+    // Check if user has enough credits (need at least 500 credits)
     const { credits } = await getUserCredits(userId);
-    if (credits <= 0) {
-      return { error: new Error('Insufficient credits') };
+    if (credits < 500) {
+      return { error: new Error('Insufficient credits. You need 500 credits to generate a video.') };
     }
 
-    // Add a negative credit entry
+    // Add a negative credit entry (deduct 500 credits per generation)
     const { error } = await supabase
       .from('credits')
       .insert({
         user_id: userId,
-        amount: -1,
+        amount: -500,
         source: 'used',
       });
 

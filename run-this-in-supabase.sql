@@ -21,9 +21,9 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1))
   );
   
-  -- Grant initial free credits
+  -- Grant initial free credits (1000 credits for 2 free generations)
   INSERT INTO public.credits (user_id, amount, source)
-  VALUES (NEW.id, 3, 'free');
+  VALUES (NEW.id, 1000, 'free');
   
   RETURN NEW;
 END;
@@ -46,11 +46,11 @@ FROM auth.users
 WHERE id NOT IN (SELECT id FROM public.users)
 ON CONFLICT (id) DO NOTHING;
 
--- Grant credits to existing user if they don't have any
+-- Grant credits to existing user if they don't have any (1000 credits)
 INSERT INTO public.credits (user_id, amount, source)
 SELECT 
   id,
-  3,
+  1000,
   'free'
 FROM auth.users
 WHERE id NOT IN (SELECT user_id FROM public.credits WHERE amount > 0)

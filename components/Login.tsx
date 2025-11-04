@@ -67,11 +67,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <h1 className="text-4xl font-extrabold text-brand-yellow mb-2">
                     {isSignUp ? 'Welcome to PetGroove!' : 'Welcome Back!'}
                 </h1>
-                <p className="text-gray-300 mb-6">
-                    {isSignUp
-                        ? "Create an account to turn your furry friends into dancing stars. You'll get 3 free credits to start!"
-                        : 'Sign in to continue creating amazing pet dance videos.'}
-                </p>
+                    <p className="text-gray-300 mb-6">
+                        {isSignUp
+                            ? "Create an account to turn your furry friends into dancing stars. You'll get 1000 free credits to start (2 free video generations)!"
+                            : 'Sign in to continue creating amazing pet dance videos.'}
+                    </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {isSignUp && (

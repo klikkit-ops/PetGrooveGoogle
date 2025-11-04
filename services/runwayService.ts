@@ -23,24 +23,43 @@ export const generateDancingPetVideo = async (
     const prompt = enhancedPrompt || `An 8-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
 
     // Step 1: Create a video generation task
+    // NOTE: RunwayML API endpoints and request format may vary.
+    // Please verify the correct API endpoints in RunwayML documentation:
+    // https://docs.runwayml.com/
+    const requestBody = {
+        image: `data:${imageFile.type};base64,${base64Image}`,
+        prompt: prompt,
+        duration: 8, // 8 seconds
+        aspect_ratio: '1:1', // Square format
+        resolution: '1280x1280',
+    };
+    
+    console.log('RunwayML API Request:', {
+        endpoint: 'https://api.runwayml.com/v1/image-to-video',
+        body: { ...requestBody, image: '[base64 data...]' }
+    });
+    
     const createResponse = await fetch('https://api.runwayml.com/v1/image-to-video', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            image: `data:${imageFile.type};base64,${base64Image}`,
-            prompt: prompt,
-            duration: 8, // 8 seconds
-            aspect_ratio: '1:1', // Square format
-            resolution: '1280x1280',
-        }),
+        body: JSON.stringify(requestBody),
     });
 
     if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({ message: createResponse.statusText }));
-        throw new Error(`Failed to create video generation task: ${errorData.message || createResponse.statusText}`);
+        let errorMessage = `HTTP ${createResponse.status}: ${createResponse.statusText}`;
+        try {
+            const errorData = await createResponse.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            if (errorData.details) {
+                errorMessage += ` - ${JSON.stringify(errorData.details)}`;
+            }
+        } catch {
+            // If JSON parsing fails, use the status text
+        }
+        throw new Error(`Failed to create video generation task: ${errorMessage}`);
     }
 
     const taskData: RunwayVideoGenerationResponse = await createResponse.json();
@@ -110,7 +129,7 @@ export const generateDancingPetVideo = async (
     // Step 4: Download the video and convert to blob URL
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
-        throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+        throw new Error(`Failed to fetch video from RunwayML (${videoResponse.status}): ${videoResponse.statusText}. Please check the video URL and CORS settings.`);
     }
     
     const blob = await videoResponse.blob();

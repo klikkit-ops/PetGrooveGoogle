@@ -35,14 +35,25 @@ const App: React.FC = () => {
         }
     }, []);
 
-    // Load user session on mount and handle auth state changes
+    // Load user session on mount only
     useEffect(() => {
+        let mounted = true;
+        let sessionLoaded = false;
+        
         const loadUserSession = async () => {
+            // Prevent multiple loads
+            if (sessionLoaded) {
+                return;
+            }
+            
             try {
+                sessionLoaded = true;
                 setLoading(true);
                 
                 // Check for existing session
                 const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (!mounted) return;
                 
                 if (sessionError) {
                     console.error('Error getting session:', sessionError);
@@ -51,88 +62,68 @@ const App: React.FC = () => {
                 }
                 
                 if (session?.user) {
-                    // Session exists, get user profile with timeout
-                    const getUserPromise = getCurrentUser();
-                    const timeoutPromise = new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('getCurrentUser timeout')), 10000)
-                    );
+                    // Session exists, get user profile
+                    const { user: currentUser, error } = await getCurrentUser();
                     
-                    try {
-                        const { user: currentUser, error } = await Promise.race([
-                            getUserPromise,
-                            timeoutPromise
-                        ]) as { user: UserProfile | null; error: Error | null };
-                        
-                        if (currentUser && !error) {
-                            setUser(currentUser);
-                            await loadUserData(currentUser.id);
-                        } else {
-                            console.warn('Failed to get user profile:', error);
-                            // Don't sign out - profile might be created by trigger
-                            // Just show login screen
-                        }
-                    } catch (error) {
-                        console.error('Error or timeout getting user:', error);
-                        // On timeout or error, just show login screen
+                    if (!mounted) return;
+                    
+                    if (currentUser && !error) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
+                    } else {
+                        console.warn('Failed to get user profile:', error);
                     }
+                } else {
+                    // No session
+                    setUser(null);
                 }
             } catch (error) {
                 console.error('Error loading user session:', error);
             } finally {
-                setLoading(false);
+                if (mounted) {
+                    setLoading(false);
+                }
             }
         };
 
         loadUserSession();
+        
+        return () => {
+            mounted = false;
+        };
 
         // Listen for auth state changes (e.g., OAuth callback)
+        // Only handle SIGNED_IN and SIGNED_OUT - ignore TOKEN_REFRESHED and INITIAL_SESSION
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // Prevent handling if we're already loading
-            if (isLoadingSession) {
-                return;
-            }
-            
             try {
-                console.log('Auth state changed:', event, session?.user?.id);
+                // Only log important events
+                if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+                    console.log('Auth state changed:', event, session?.user?.id);
+                }
                 
-                if (event === 'SIGNED_IN' && session?.user) {
-                    // Only update if we don't already have a user (to prevent duplicate loads)
-                    if (!user) {
-                        setIsLoadingSession(true);
-                        // Wait a bit for the database trigger to create the profile
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        
-                        const { user: currentUser, error } = await getCurrentUser();
-                        if (currentUser && !error) {
-                            setUser(currentUser);
-                            await loadUserData(currentUser.id);
-                        } else {
-                            console.error('Failed to get user after sign in:', error);
-                        }
-                        setIsLoadingSession(false);
+                if (event === 'SIGNED_IN' && session?.user && !user) {
+                    // Only update if we don't already have a user
+                    // Don't set loading - let the app continue normally
+                    const { user: currentUser, error } = await getCurrentUser();
+                    if (currentUser && !error) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
                     }
                 } else if (event === 'SIGNED_OUT') {
                     setUser(null);
                     setCredits(0);
                     setVideos([]);
-                } else if (event === 'TOKEN_REFRESHED' && user) {
-                    // Only refresh if we have a user - silently refresh user data
-                    const { user: currentUser, error } = await getCurrentUser();
-                    if (currentUser && !error) {
-                        setUser(currentUser);
-                    }
                 }
+                // Ignore TOKEN_REFRESHED and INITIAL_SESSION to prevent unnecessary reloads
             } catch (error) {
                 console.error('Error handling auth state change:', error);
-            } finally {
-                setIsLoadingSession(false);
             }
         });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [loadUserData, user, isLoadingSession]);
+    }, [loadUserData, user]);
 
     const handleLogin = useCallback((loggedInUser: User) => {
         setUser(loggedInUser);

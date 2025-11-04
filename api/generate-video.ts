@@ -25,23 +25,29 @@ export default async function handler(
     }
 
     // Initialize RunwayML client
-    // The SDK may use apiKey or apiSecret - try both
-    const client = new RunwayML({ 
-      apiKey: apiKey,
-      // Alternative: apiSecret: apiKey
-    });
+    // The SDK uses apiSecret according to RunwayML docs
+    let client: RunwayML;
+    try {
+      client = new RunwayML({ 
+        apiSecret: apiKey,
+      });
+    } catch (initError: any) {
+      console.error('Failed to initialize RunwayML client:', initError);
+      return res.status(500).json({ 
+        error: 'Failed to initialize RunwayML client',
+        details: initError?.message 
+      });
+    }
 
     // Use enhanced prompt if provided, otherwise create default
     const finalPrompt = enhancedPrompt || 
       `An 8-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
 
     try {
-      // Create image-to-video generation task
-      // Note: RunwayML uses different models - check docs for image-to-video model name
-      // This might be 'gen4_aleph' or similar - adjust based on actual API
+      // Create image-to-video generation task using gen4_turbo model
       const task = await client.imageToVideo
         .create({
-          model: 'gen4_aleph', // Adjust this based on RunwayML docs
+          model: 'gen4_turbo',
           promptText: finalPrompt,
           promptImage: image, // Base64 image string
           ratio: '1:1',
@@ -66,6 +72,7 @@ export default async function handler(
           details: error.taskDetails,
         });
       }
+      console.error('RunwayML API error:', error);
       throw error;
     }
   } catch (error: any) {

@@ -98,12 +98,7 @@ export default async function handler(
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: selectedPlan.priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems, // Use the built lineItems array (includes $0.49 trial + subscription if applicable)
       mode: 'subscription',
       success_url: `${req.headers.origin || 'https://petgroovegoogle.vercel.app'}/account?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.origin || 'https://petgroovegoogle.vercel.app'}/account?canceled=true`,

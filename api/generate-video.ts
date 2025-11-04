@@ -58,8 +58,9 @@ export default async function handler(
     }
 
     // Use enhanced prompt if provided, otherwise create default
+    // IMPORTANT: The prompt must emphasize the pet maintains its original appearance
     const finalPrompt = enhancedPrompt || 
-      `A 5-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
+      `A 5-second video of this pet performing the '${dance}' dance. The pet maintains its original appearance and natural anatomy. The pet uses its actual body parts (paws, tail, ears, etc.) to perform the specific movements characteristic of '${dance}'. The setting is fun and colorful, with smooth, natural movements showing the pet dancing.`;
 
     try {
       // Create image-to-video generation task using gen4_turbo model

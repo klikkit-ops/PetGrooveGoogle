@@ -84,7 +84,7 @@ const VideoGenerator: React.FC = () => {
             } catch (promptError) {
                 // If prompt enhancement fails, use base prompt
                 console.warn('Prompt enhancement failed, using base prompt:', promptError);
-                enhancedPrompt = `A 5-second video of this pet dancing '${selectedDance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
+                enhancedPrompt = `A 5-second video of this pet performing the '${selectedDance}' dance. The pet maintains its original appearance and natural anatomy. The pet uses its actual body parts (paws, tail, ears, etc.) to perform the specific movements characteristic of '${selectedDance}'. The setting is fun and colorful, with smooth, natural movements showing the pet dancing.`;
             }
             
             const videoUrl = await generateDancingPetVideo(imageFile, selectedDance, enhancedPrompt);

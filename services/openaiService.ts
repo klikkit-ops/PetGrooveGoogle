@@ -38,7 +38,7 @@ Your prompt must:
 4. Keep the description clear and focused (60-100 words)
 
 Format:
-"The exact pet from the input image, looking identical with the same appearance, performs [dance-specific movements]. The pet's [body parts] move in [dance style] patterns. [Specific dance movements]."
+"The exact pet from the input image, looking identical with the same appearance, performs [dance-specific movements]. The pet's [body parts] move in [dance style] patterns. [Specific dance movements]."`
                     },
                     {
                         role: 'user',

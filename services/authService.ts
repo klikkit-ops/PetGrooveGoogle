@@ -58,8 +58,36 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
 
       if (insertError) {
         console.error('Failed to create user profile:', insertError);
-        return { user: null, error: insertError };
+        // Return a more descriptive error
+        const errorMessage = insertError.message || insertError.code || 'Database error saving new user';
+        return { 
+          user: null, 
+          error: new Error(`Failed to create user profile: ${errorMessage}. Please make sure the database trigger is set up correctly.`) 
+        };
       }
+      
+      // Wait a moment and fetch the newly created profile
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const { data: newProfile, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (fetchError || !newProfile) {
+        return { 
+          user: null, 
+          error: new Error(`User profile created but could not be retrieved: ${fetchError?.message || 'Unknown error'}`) 
+        };
+      }
+      
+      return {
+        user: {
+          id: newProfile.id,
+          email: newProfile.email,
+        },
+        error: null,
+      };
     }
 
     return {

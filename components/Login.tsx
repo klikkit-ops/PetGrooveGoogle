@@ -46,6 +46,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 });
 
                 if (signUpError) {
+                    console.error('Sign up error:', signUpError);
                     setError(signUpError.message || 'Failed to create account');
                 } else if (user) {
                     onLogin(user);

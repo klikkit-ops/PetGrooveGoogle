@@ -37,16 +37,23 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_user_id UUID;
+  v_user_email TEXT;
 BEGIN
+  -- Store values in variables for better error handling
+  v_user_id := NEW.id;
+  v_user_email := COALESCE(NEW.email, '');
+  
   -- Create user profile (without name field requirement)
   -- This bypasses RLS because the function uses SECURITY DEFINER
   INSERT INTO public.users (id, email)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.email, '')
-  )
+  VALUES (v_user_id, v_user_email)
   ON CONFLICT (id) DO UPDATE 
-  SET email = COALESCE(NEW.email, users.email);
+  SET email = COALESCE(EXCLUDED.email, users.email);
+  
+  -- Log successful creation
+  RAISE LOG 'Successfully created user profile for user % (email: %)', v_user_id, v_user_email;
   
   -- NOTE: No credits are granted - users start with 0 credits
   -- Users must subscribe/pay to obtain credits
@@ -54,9 +61,13 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Log the error but don't fail the auth signup
-    -- This will show up in Supabase logs
-    RAISE WARNING 'Error creating user profile for user %: %', NEW.id, SQLERRM;
+    -- Log the error with full details
+    -- This will show up in Supabase Postgres logs
+    RAISE WARNING 'Error creating user profile for user % (email: %): %', 
+      v_user_id, 
+      v_user_email, 
+      SQLERRM;
+    -- Still return NEW to not block auth signup
     RETURN NEW;
 END;
 $$;

@@ -209,12 +209,19 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
     // Wait a moment for the database trigger to create the user profile (if it exists)
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Fetch user profile
+    // Wait a moment for the database trigger to create the user profile (if it exists)
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Fetch user profile - use maybeSingle() to handle case where profile doesn't exist yet
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
       .eq('id', authUser.id)
-      .single();
+      .maybeSingle();
+
+    // If profile doesn't exist (e.g., first-time Google sign-in), create it
+    // But only if the error is "not found", not an RLS error
+    if ((profileError && profileError.code === 'PGRST116') || !profile) {
 
     // If profile doesn't exist (e.g., first-time Google sign-in), create it
     if (profileError || !profile) {
@@ -229,27 +236,31 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
         });
 
       if (insertError) {
-        console.error('Failed to create user profile:', insertError);
-        // If insert fails, try fetching again (maybe trigger created it)
+        console.error('Failed to create user profile (will be created by trigger):', insertError);
+        // If insert fails (likely RLS), wait a bit longer and try fetching again
+        // The trigger should have created it by now
+        await new Promise(resolve => setTimeout(resolve, 1000));
         const { data: retryProfile, error: retryError } = await supabase
           .from('users')
           .select('*')
           .eq('id', authUser.id)
-          .single();
+          .maybeSingle();
         
-        if (retryError || !retryProfile) {
-          return { user: null, error: insertError || retryError || new Error('User profile not found') };
+        if (retryProfile && !retryError) {
+          // Profile was created by trigger
+          return {
+            user: {
+              id: retryProfile.id,
+              email: retryProfile.email,
+              name: retryProfile.name || undefined,
+            },
+            error: null,
+          };
         }
         
-        // Use the retry profile
-        return {
-          user: {
-            id: retryProfile.id,
-            email: retryProfile.email,
-            name: retryProfile.name || undefined,
-          },
-          error: null,
-        };
+        // Still no profile - return error but don't block auth
+        // The profile will be created eventually by the trigger
+        return { user: null, error: new Error('User profile not found - trigger may still be creating it') };
       }
 
       // Return the newly created profile

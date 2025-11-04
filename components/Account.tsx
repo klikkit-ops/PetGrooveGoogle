@@ -60,7 +60,7 @@ const Account: React.FC = () => {
                     ))}
                 </div>
                  <p className="text-xs text-brand-muted mt-6 text-center">
-                    This is a demo. Clicking "Buy Now" will add credits to your account for free.
+                    Credits will be added to your account after successful payment processing.
                 </p>
             </div>
         </div>

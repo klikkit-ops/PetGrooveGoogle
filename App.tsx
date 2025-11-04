@@ -87,10 +87,6 @@ const App: React.FC = () => {
         };
 
         loadUserSession();
-        
-        return () => {
-            mounted = false;
-        };
 
         // Listen for auth state changes (e.g., OAuth callback)
         // Only handle SIGNED_IN and SIGNED_OUT - ignore TOKEN_REFRESHED and INITIAL_SESSION
@@ -121,6 +117,7 @@ const App: React.FC = () => {
         });
 
         return () => {
+            mounted = false;
             subscription.unsubscribe();
         };
     }, [loadUserData, user]);

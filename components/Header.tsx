@@ -29,7 +29,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
                     <div className="flex items-center space-x-8">
                         <div className="flex items-center space-x-2">
                            <span className="text-2xl">🐾</span>
-                           <h1 className="text-xl font-bold text-brand-yellow">Pet Dance Party</h1>
+                           <h1 className="text-xl font-bold text-brand-yellow">PetGroove</h1>
                         </div>
                         <nav className="hidden md:flex space-x-4">
                             {navItems.map((item) => (

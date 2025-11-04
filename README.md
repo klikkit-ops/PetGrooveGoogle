@@ -1,4 +1,4 @@
-# Pet Dance Party - Deployment Guide
+# PetGroove - Deployment Guide
 
 This is a React + Vite application that generates dancing pet videos using RunwayML for video generation and OpenAI for prompt enhancement. This guide will walk you through deploying to Vercel and setting up Supabase and Stripe integration.
 
@@ -185,7 +185,7 @@ This is a React + Vite application that generates dancing pet videos using Runwa
 2. **Click "New Project"**
 
 3. **Fill in project details:**
-   - Project Name: `pet-dance-party` (or your preferred name)
+   - Project Name: `petgroove` (or your preferred name)
    - Database Password: Create a strong password (save it!)
    - Region: Choose closest to your users
    - Click "Create new project"

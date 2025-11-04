@@ -1,17 +1,16 @@
 /**
  * Service for OpenAI API integration
- * Used for enhancing prompts and other AI-powered features
+ * Used for creating detailed, dance-specific prompts optimized for gen4_turbo video generation
  */
 
 export const enhancePromptWithOpenAI = async (
-    basePrompt: string,
     dance: string
 ): Promise<string> => {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
-    // If OpenAI API key is not configured, return the base prompt
+    // If OpenAI API key is not configured, return a base prompt
     if (!apiKey) {
-        return basePrompt;
+        return `A 5-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
     }
 
     try {
@@ -26,22 +25,32 @@ export const enhancePromptWithOpenAI = async (
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a creative video prompt engineer. Enhance video generation prompts to be more descriptive and engaging while keeping them concise (under 100 words).'
+                        content: `You are a professional video prompt engineer specializing in AI video generation (gen4_turbo model). 
+Create detailed, specific prompts that will generate high-quality videos. Focus on:
+- Specific dance movements and characteristics unique to "${dance}"
+- Visual details: lighting, colors, setting, atmosphere
+- Camera movement and framing
+- Pet's body language and expression
+- Smooth, natural motion
+Keep prompts under 150 words and optimized for portrait format (720:1280).`
                     },
                     {
                         role: 'user',
-                        content: `Create an enhanced, detailed prompt for generating a video of a pet dancing the "${dance}". Make it vivid and descriptive, focusing on smooth, natural movements and an engaging, fun setting. Keep it under 100 words.`
+                        content: `Create a detailed, vivid prompt for generating a 5-second video of a pet performing "${dance}". 
+Describe the specific dance movements, the pet's energy and expression, the setting, lighting, and atmosphere. 
+Make it highly descriptive so the AI video generator can create a stunning, engaging video. 
+Focus on what makes "${dance}" unique and visually interesting.`
                     }
                 ],
-                max_tokens: 150,
-                temperature: 0.8,
+                max_tokens: 200,
+                temperature: 0.9,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
             console.warn('OpenAI prompt enhancement failed, using base prompt:', errorData.message);
-            return basePrompt;
+            return `A 5-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
         }
 
         const data = await response.json();
@@ -55,6 +64,6 @@ export const enhancePromptWithOpenAI = async (
     }
 
     // Fallback to base prompt if anything goes wrong
-    return basePrompt;
+    return `A 5-second video of this pet dancing '${dance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
 };
 

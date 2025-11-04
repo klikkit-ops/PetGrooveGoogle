@@ -76,7 +76,7 @@ export default async function handler(
           model: 'gen4_turbo',
           promptText: finalPrompt,
           promptImage: image, // Data URL - SDK may accept this, or may need actual URL
-          ratio: '960:960', // Square format - valid for gen4_turbo
+          ratio: '720:1280', // Portrait format (720:1280) - valid for gen4_turbo
           duration: 5, // gen4_turbo supports only 5 or 10 seconds (using 5 for cost)
         })
         .waitForTaskOutput();

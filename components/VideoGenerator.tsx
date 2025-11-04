@@ -77,16 +77,14 @@ const VideoGenerator: React.FC = () => {
         useCredit();
 
         try {
-            // Optionally enhance prompt with OpenAI
-            let enhancedPrompt: string | undefined;
+            // Enhance prompt with OpenAI - creates detailed dance-specific prompt
+            let enhancedPrompt: string;
             try {
-                enhancedPrompt = await enhancePromptWithOpenAI(
-                    `An 8-second video of this pet dancing '${selectedDance}' in a fun, colorful setting.`,
-                    selectedDance
-                );
+                enhancedPrompt = await enhancePromptWithOpenAI(selectedDance);
             } catch (promptError) {
-                // If prompt enhancement fails, continue with base prompt
+                // If prompt enhancement fails, use base prompt
                 console.warn('Prompt enhancement failed, using base prompt:', promptError);
+                enhancedPrompt = `A 5-second video of this pet dancing '${selectedDance}' in a fun, colorful setting. The pet should be animated and dancing gracefully with smooth movements.`;
             }
             
             const videoUrl = await generateDancingPetVideo(imageFile, selectedDance, enhancedPrompt);

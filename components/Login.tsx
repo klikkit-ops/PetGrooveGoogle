@@ -65,7 +65,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <span className="text-7xl animate-pulse-slow">🐾</span>
                 </div>
                 <h1 className="text-4xl font-extrabold text-brand-yellow mb-2">
-                    {isSignUp ? 'Welcome to Pet Dance Party!' : 'Welcome Back!'}
+                    {isSignUp ? 'Welcome to PetGroove!' : 'Welcome Back!'}
                 </h1>
                 <p className="text-gray-300 mb-6">
                     {isSignUp

@@ -36,9 +36,35 @@ const App: React.FC = () => {
 
     // Load user session on mount and handle auth state changes
     useEffect(() => {
+        // Handle OAuth callback first
+        const handleOAuthCallback = async () => {
+            try {
+                // Check for OAuth hash fragments in URL
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (session && !error) {
+                    // Session exists, now check for user profile
+                    const { user: currentUser, error: userError } = await getCurrentUser();
+                    if (currentUser && !userError) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling OAuth callback:', error);
+            }
+        };
+
         const loadUserSession = async () => {
             try {
                 setLoading(true);
+                
+                // First, handle any OAuth callback
+                await handleOAuthCallback();
+                
+                // Then check for existing session
                 const { user: currentUser, error } = await getCurrentUser();
                 
                 if (currentUser && !error) {
@@ -58,19 +84,36 @@ const App: React.FC = () => {
         // Listen for auth state changes (e.g., OAuth callback)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             try {
+                console.log('Auth state changed:', event, session?.user?.id);
+                
                 if (event === 'SIGNED_IN' && session?.user) {
+                    setLoading(true);
+                    // Wait a bit for the database trigger to create the profile
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    const { user: currentUser, error } = await getCurrentUser();
+                    if (currentUser && !error) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
+                    } else {
+                        console.error('Failed to get user after sign in:', error);
+                    }
+                    setLoading(false);
+                } else if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setCredits(0);
+                    setVideos([]);
+                } else if (event === 'TOKEN_REFRESHED') {
+                    // Refresh user data when token is refreshed
                     const { user: currentUser, error } = await getCurrentUser();
                     if (currentUser && !error) {
                         setUser(currentUser);
                         await loadUserData(currentUser.id);
                     }
-                } else if (event === 'SIGNED_OUT') {
-                    setUser(null);
-                    setCredits(0);
-                    setVideos([]);
                 }
             } catch (error) {
                 console.error('Error handling auth state change:', error);
+                setLoading(false);
             }
         });
 

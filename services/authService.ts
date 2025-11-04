@@ -173,6 +173,9 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       return { user: null, error: authError || new Error('No authenticated user') };
     }
 
+    // Wait a moment for the database trigger to create the user profile (if it exists)
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Fetch user profile
     const { data: profile, error: profileError } = await supabase
       .from('users')
@@ -194,7 +197,26 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
 
       if (insertError) {
         console.error('Failed to create user profile:', insertError);
-        return { user: null, error: insertError };
+        // If insert fails, try fetching again (maybe trigger created it)
+        const { data: retryProfile, error: retryError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        
+        if (retryError || !retryProfile) {
+          return { user: null, error: insertError || retryError || new Error('User profile not found') };
+        }
+        
+        // Use the retry profile
+        return {
+          user: {
+            id: retryProfile.id,
+            email: retryProfile.email,
+            name: retryProfile.name || undefined,
+          },
+          error: null,
+        };
       }
 
       // Return the newly created profile

@@ -4,7 +4,11 @@
 -- This ensures the trigger and RLS policies are correctly configured
 -- ============================================
 
--- Step 1: Ensure RLS is enabled on users table
+-- Step 1: Make name column nullable (since we removed it from signup)
+-- This must be done BEFORE creating the trigger
+ALTER TABLE public.users ALTER COLUMN name DROP NOT NULL;
+
+-- Step 2: Ensure RLS is enabled on users table
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- Step 2: Drop existing policies to start fresh

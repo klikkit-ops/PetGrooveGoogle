@@ -3,7 +3,10 @@
 -- Run this to manually create profiles for users that don't have them
 -- ============================================
 
--- Create profiles for users missing from public.users
+-- Step 1: Make sure name column is nullable (if it isn't already)
+ALTER TABLE public.users ALTER COLUMN name DROP NOT NULL;
+
+-- Step 2: Create profiles for users missing from public.users
 INSERT INTO public.users (id, email)
 SELECT 
   au.id,

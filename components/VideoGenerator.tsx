@@ -170,7 +170,7 @@ const VideoGenerator: React.FC = () => {
 
             <div className="bg-brand-surface p-6 rounded-xl shadow-lg flex flex-col items-center justify-center min-h-[400px]">
                 <h2 className="text-2xl font-bold mb-4 text-brand-yellow self-start">3. Watch The Magic!</h2>
-                <div className="w-full h-full flex items-center justify-center aspect-square bg-black rounded-lg">
+                <div className="w-full h-full flex items-center justify-center aspect-[9/16] bg-black rounded-lg">
                     {isLoading ? (
                          <div className="text-center">
                             <Spinner />

@@ -76,8 +76,9 @@ export default async function handler(
       // According to RunwayML docs: https://docs.dev.runwayml.com/
       // - promptImage: accepts URL (examples show URLs, but SDK may accept data URLs)
       // - model: 'veo3.1_fast' for faster generation
-      // - ratio: '720:1280' for portrait format
-      // - duration: 5 seconds
+      // - ratio: '720:1280' for portrait format (supported: 1280x720, 720x1280)
+      // - duration: 8 seconds (veo3.1_fast ONLY supports 8s, not 5s or 10s like gen4_turbo)
+      // - Pricing: veo3.1_fast costs 15 credits/second (vs 5 credits/second for gen4_turbo)
       
       // The SDK examples show URLs, but data URLs might work
       // If this fails with image format error, we'll need to upload to a temporary URL first
@@ -86,8 +87,8 @@ export default async function handler(
           model: 'veo3.1_fast',
           promptText: finalPrompt,
           promptImage: image, // Data URL - SDK may accept this, or may need actual URL
-          ratio: '720:1280', // Portrait format (720:1280)
-          duration: 5, // 5 seconds
+          ratio: '720:1280', // Portrait format (720:1280) - supported by veo3.1_fast
+          duration: 8, // veo3.1_fast ONLY supports 8 seconds (not 5s or 10s like gen4_turbo)
         })
         .waitForTaskOutput();
 

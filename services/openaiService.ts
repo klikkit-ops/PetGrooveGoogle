@@ -42,7 +42,7 @@ Format:
                     },
                     {
                         role: 'user',
-                        content: `Create a detailed prompt for a 5-second video where THE EXACT PET from the input image performs the "${dance}" dance.
+                        content: `Create a detailed prompt for an 8-second video where THE EXACT PET from the input image performs the "${dance}" dance.
 
 REQUIREMENTS:
 - The pet must be IDENTICAL to the input image (same appearance, no transformation)
@@ -51,7 +51,7 @@ REQUIREMENTS:
 - Be specific about the movement patterns, rhythm, and energy
 
 Example for "The Robot" dance:
-"The exact pet from the input image, looking identical with the same appearance and features, performs the robot dance. The pet moves in stiff, mechanical, robotic motions. Its paws lift and lower in sharp, angular movements. The head turns in precise, jerky rotations. The body moves in synchronized, mechanical steps while maintaining the pet's original appearance throughout."
+"The exact pet from the input image, looking identical with the same appearance and features, performs the robot dance. The pet moves in stiff, mechanical, robotic motions. Its paws lift and lower in sharp, angular movements. The head turns in precise, jerky rotations. The body moves in synchronized, mechanical steps while maintaining the pet's original appearance throughout. The dance continues for 8 seconds with consistent robotic movements."
 
 Now write a detailed prompt for "${dance}" following this format - emphasizing the pet's identical appearance and the specific dance movements.`
                     }

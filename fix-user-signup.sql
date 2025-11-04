@@ -30,8 +30,13 @@ CREATE POLICY "Users can update own data" ON users
 
 -- Step 4: Create/Update the trigger function
 -- SECURITY DEFINER allows the function to bypass RLS policies
+-- Set the function owner to postgres to ensure it has proper permissions
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
 BEGIN
   -- Create user profile (without name field requirement)
   -- This bypasses RLS because the function uses SECURITY DEFINER
@@ -50,12 +55,16 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     -- Log the error but don't fail the auth signup
-    RAISE WARNING 'Error creating user profile: %', SQLERRM;
+    -- This will show up in Supabase logs
+    RAISE WARNING 'Error creating user profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- Step 4b: Grant execute permissions on the function
+-- Step 4b: Set the function owner to postgres to ensure it bypasses RLS
+ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
+
+-- Step 4c: Grant execute permissions on the function
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
 
 -- Step 5: Create/Update the trigger

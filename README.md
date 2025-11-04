@@ -123,10 +123,11 @@ This is a React + Vite application that generates dancing pet videos using Runwa
 
 1. **Go to your Vercel project → Settings → Environment Variables**
 
-2. **Add the following:**
+2. **Add the following (IMPORTANT: No VITE_ prefix for server-side API key):**
    ```
-   VITE_RUNWAY_API_KEY = your_runway_api_key_here
+   RUNWAY_API_KEY = your_runway_api_key_here
    ```
+   Note: This is a server-side environment variable (no VITE_ prefix) because it's used in the API route, not the frontend.
 
 3. **Redeploy your project** after adding the environment variable
 
@@ -386,7 +387,7 @@ CREATE TRIGGER on_auth_user_created
 
 | Variable Name | Description | Where to Get It |
 |--------------|-------------|----------------|
-| `VITE_RUNWAY_API_KEY` | RunwayML API key | [RunwayML Developer Platform](https://docs.runwayml.com/) |
+| `RUNWAY_API_KEY` | RunwayML API key (server-side, no VITE_ prefix) | [RunwayML Developer Platform](https://docs.dev.runwayml.com/) |
 | `VITE_OPENAI_API_KEY` | OpenAI API key (optional) | [OpenAI Platform](https://platform.openai.com/api-keys) |
 | `VITE_SUPABASE_URL` | Supabase project URL | Supabase Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key | Supabase Dashboard → Settings → API |

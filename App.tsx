@@ -41,21 +41,38 @@ const App: React.FC = () => {
                 setLoading(true);
                 
                 // Check for existing session
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    console.error('Error getting session:', sessionError);
+                    setLoading(false);
+                    return;
+                }
                 
                 if (session?.user) {
-                    // Session exists, get user profile
-                    const { user: currentUser, error } = await getCurrentUser();
+                    // Session exists, get user profile with timeout
+                    const getUserPromise = getCurrentUser();
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('getCurrentUser timeout')), 10000)
+                    );
                     
-                    if (currentUser && !error) {
-                        setUser(currentUser);
-                        await loadUserData(currentUser.id);
-                    } else {
-                        console.warn('Failed to get user profile:', error);
-                        // Clear session if profile can't be loaded
-                        if (error?.message?.includes('not found')) {
-                            await supabase.auth.signOut();
+                    try {
+                        const { user: currentUser, error } = await Promise.race([
+                            getUserPromise,
+                            timeoutPromise
+                        ]) as { user: UserProfile | null; error: Error | null };
+                        
+                        if (currentUser && !error) {
+                            setUser(currentUser);
+                            await loadUserData(currentUser.id);
+                        } else {
+                            console.warn('Failed to get user profile:', error);
+                            // Don't sign out - profile might be created by trigger
+                            // Just show login screen
                         }
+                    } catch (error) {
+                        console.error('Error or timeout getting user:', error);
+                        // On timeout or error, just show login screen
                     }
                 }
             } catch (error) {
@@ -73,22 +90,27 @@ const App: React.FC = () => {
                 console.log('Auth state changed:', event, session?.user?.id);
                 
                 if (event === 'SIGNED_IN' && session?.user) {
-                    setLoading(true);
-                    // Wait a bit for the database trigger to create the profile
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    const { user: currentUser, error } = await getCurrentUser();
-                    if (currentUser && !error) {
-                        setUser(currentUser);
-                        await loadUserData(currentUser.id);
-                    } else {
-                        console.error('Failed to get user after sign in:', error);
+                    // Don't set loading to true here - let the initial load handle it
+                    // Only update if we don't already have a user
+                    if (!user) {
+                        setLoading(true);
+                        // Wait a bit for the database trigger to create the profile
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        const { user: currentUser, error } = await getCurrentUser();
+                        if (currentUser && !error) {
+                            setUser(currentUser);
+                            await loadUserData(currentUser.id);
+                        } else {
+                            console.error('Failed to get user after sign in:', error);
+                        }
+                        setLoading(false);
                     }
-                    setLoading(false);
                 } else if (event === 'SIGNED_OUT') {
                     setUser(null);
                     setCredits(0);
                     setVideos([]);
+                    setLoading(false);
                 } else if (event === 'TOKEN_REFRESHED') {
                     // Refresh user data when token is refreshed
                     const { user: currentUser, error } = await getCurrentUser();

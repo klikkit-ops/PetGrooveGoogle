@@ -209,9 +209,6 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
     // Wait a moment for the database trigger to create the user profile (if it exists)
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Wait a moment for the database trigger to create the user profile (if it exists)
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     // Fetch user profile - use maybeSingle() to handle case where profile doesn't exist yet
     const { data: profile, error: profileError } = await supabase
       .from('users')
@@ -222,9 +219,6 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
     // If profile doesn't exist (e.g., first-time Google sign-in), create it
     // But only if the error is "not found", not an RLS error
     if ((profileError && profileError.code === 'PGRST116') || !profile) {
-
-    // If profile doesn't exist (e.g., first-time Google sign-in), create it
-    if (profileError || !profile) {
       const email = authUser.email || '';
 
       // Try to create the profile

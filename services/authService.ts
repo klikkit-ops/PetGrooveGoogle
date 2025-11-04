@@ -3,7 +3,6 @@ import { supabase } from './supabaseClient';
 export interface SignUpData {
   email: string;
   password: string;
-  name: string;
 }
 
 export interface SignInData {
@@ -14,7 +13,7 @@ export interface SignInData {
 export interface UserProfile {
   id: string;
   email: string;
-  name: string;
+  name?: string;
 }
 
 /**
@@ -23,15 +22,9 @@ export interface UserProfile {
 export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
     // Sign up with Supabase Auth
-    // Pass name in metadata so the trigger can use it
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: {
-        data: {
-          name: data.name,
-        },
-      },
     });
 
     if (authError) {
@@ -43,9 +36,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     }
 
     // Wait a moment for the database trigger to create the user profile
-    // The trigger will automatically:
-    // 1. Create the user profile in users table
-    // 2. Grant 3 free credits
+    // The trigger will automatically create the user profile in users table
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Fetch the created user profile
@@ -63,29 +54,18 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
         .insert({
           id: authData.user.id,
           email: data.email,
-          name: data.name,
         });
 
       if (insertError) {
         console.error('Failed to create user profile:', insertError);
         return { user: null, error: insertError };
       }
-
-      // Try to add credits if they weren't added by trigger
-      await supabase
-        .from('credits')
-        .insert({
-          user_id: authData.user.id,
-          amount: 3,
-          source: 'free',
-        });
     }
 
     return {
       user: {
         id: authData.user.id,
         email: data.email,
-        name: data.name,
       },
       error: null,
     };
@@ -130,7 +110,7 @@ export const signIn = async (data: SignInData): Promise<{ user: UserProfile | nu
       user: {
         id: profile.id,
         email: profile.email,
-        name: profile.name,
+        name: profile.name || undefined,
       },
       error: null,
     };
@@ -202,7 +182,6 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
 
     // If profile doesn't exist (e.g., first-time Google sign-in), create it
     if (profileError || !profile) {
-      const name = authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
       const email = authUser.email || '';
 
       // Try to create the profile
@@ -211,7 +190,6 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
         .insert({
           id: authUser.id,
           email: email,
-          name: name,
         });
 
       if (insertError) {
@@ -219,21 +197,11 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
         return { user: null, error: insertError };
       }
 
-      // Try to add credits if they weren't added by trigger
-      await supabase
-        .from('credits')
-        .insert({
-          user_id: authUser.id,
-          amount: 3,
-          source: 'free',
-        });
-
       // Return the newly created profile
       return {
         user: {
           id: authUser.id,
           email: email,
-          name: name,
         },
         error: null,
       };
@@ -243,7 +211,7 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       user: {
         id: profile.id,
         email: profile.email,
-        name: profile.name,
+        name: profile.name || undefined,
       },
       error: null,
     };

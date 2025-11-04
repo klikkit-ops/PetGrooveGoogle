@@ -57,10 +57,6 @@ const Account: React.FC = () => {
                 <p className="text-brand-muted mb-6">Here's your account information.</p>
                 <div className="space-y-4 text-lg">
                     <div className="flex items-center">
-                        <span className="font-bold w-32">Username:</span>
-                        <span className="text-gray-300">{user?.name}</span>
-                    </div>
-                     <div className="flex items-center">
                         <span className="font-bold w-32">Email:</span>
                         <span className="text-gray-300">{user?.email}</span>
                     </div>

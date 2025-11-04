@@ -11,7 +11,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const [isSignUp, setIsSignUp] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
     const [error, setError] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
@@ -41,16 +40,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         try {
             if (isSignUp) {
-                if (!name.trim()) {
-                    setError('Please enter your name');
-                    setLoading(false);
-                    return;
-                }
-
                 const { user, error: signUpError } = await signUp({
                     email,
                     password,
-                    name: name.trim(),
                 });
 
                 if (signUpError) {
@@ -88,23 +80,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </h1>
                     <p className="text-gray-300 mb-6">
                         {isSignUp
-                            ? "Create an account to turn your furry friends into dancing stars. You'll get 1000 free credits to start (2 free video generations)!"
+                            ? "Create an account to turn your furry friends into dancing stars."
                             : 'Sign in to continue creating amazing pet dance videos.'}
                     </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {isSignUp && (
-                        <div>
-                            <input
-                                type="text"
-                                placeholder="Your Name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-brand-muted text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-brand-purple focus:outline-none"
-                                disabled={loading || googleLoading}
-                            />
-                        </div>
-                    )}
                     <div>
                         <input
                             type="email"
@@ -143,7 +123,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         disabled={loading || googleLoading}
                         className="w-full bg-gradient-to-r from-brand-purple to-brand-pink text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 transform hover:scale-105 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
-                        {loading ? 'Loading...' : isSignUp ? 'Create My Free Account' : 'Sign In'}
+                        {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
                     </button>
                 </form>
 
@@ -197,7 +177,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             setError('');
                             setEmail('');
                             setPassword('');
-                            setName('');
                         }}
                         className="text-brand-yellow hover:underline text-sm"
                         disabled={loading || googleLoading}

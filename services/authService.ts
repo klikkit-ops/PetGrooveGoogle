@@ -28,6 +28,15 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     });
 
     if (authError) {
+      // Check for duplicate email error
+      if (authError.message?.includes('already registered') || 
+          authError.message?.includes('already exists') ||
+          authError.message?.includes('already been registered')) {
+        return { 
+          user: null, 
+          error: new Error('An account with this email already exists. Please sign in instead.') 
+        };
+      }
       return { user: null, error: authError };
     }
 

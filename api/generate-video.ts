@@ -58,28 +58,29 @@ export default async function handler(
     }
 
     // Use enhanced prompt if provided, otherwise create default
-    // For image-to-video: prompt should ONLY describe movement, not appearance
-    // The input image provides all appearance details
+    // CRITICAL: Prompt must emphasize pet is IDENTICAL to input image
+    // The pet should look exactly like the uploaded image, only performing the dance
+    // The prompt describes the dance movements while explicitly stating the pet maintains its original appearance
     const finalPrompt = enhancedPrompt || 
-      `The pet moves its body in ${dance} style movements.`;
+      `The exact pet from the input image, looking identical with the same appearance, performs the ${dance} dance. The pet's body moves in ${dance} style movements while maintaining its original appearance.`;
 
     try {
-      // Create image-to-video generation task using gen4_turbo model
+      // Create image-to-video generation task using veo3.1_fast model
       // According to RunwayML docs: https://docs.dev.runwayml.com/
       // - promptImage: accepts URL (examples show URLs, but SDK may accept data URLs)
-      // - duration: must be 5 or 10 seconds (gen4_turbo limitation)
-      // - ratio: valid formats are '1280:720', '720:1280', '1104:832', '832:1104', '960:960', '1584:672'
-      // - model: 'gen4_turbo'
+      // - model: 'veo3.1_fast' for faster generation
+      // - ratio: '720:1280' for portrait format
+      // - duration: 5 seconds
       
       // The SDK examples show URLs, but data URLs might work
       // If this fails with image format error, we'll need to upload to a temporary URL first
       const task = await client.imageToVideo
         .create({
-          model: 'gen4_turbo',
+          model: 'veo3.1_fast',
           promptText: finalPrompt,
           promptImage: image, // Data URL - SDK may accept this, or may need actual URL
-          ratio: '720:1280', // Portrait format (720:1280) - valid for gen4_turbo
-          duration: 5, // gen4_turbo supports only 5 or 10 seconds (using 5 for cost)
+          ratio: '720:1280', // Portrait format (720:1280)
+          duration: 5, // 5 seconds
         })
         .waitForTaskOutput();
 

@@ -1,6 +1,7 @@
 /**
  * Service for OpenAI API integration
- * Used for creating detailed, dance-specific prompts optimized for gen4_turbo video generation
+ * Used for creating detailed, dance-specific prompts optimized for veo3.1_fast video generation
+ * CRITICAL: The prompt must ensure the pet looks IDENTICAL to the uploaded image while performing the dance
  */
 
 export const enhancePromptWithOpenAI = async (
@@ -9,9 +10,9 @@ export const enhancePromptWithOpenAI = async (
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
     // If OpenAI API key is not configured, return a base prompt
-    // For image-to-video, we only describe movement - the image provides the appearance
+    // CRITICAL: Must emphasize pet is identical to input image
     if (!apiKey) {
-        return `The pet moves its body in ${dance} style movements.`;
+        return `The exact pet from the input image, looking identical with the same appearance, performs the ${dance} dance. The pet's body moves in ${dance} style movements while maintaining its original appearance.`;
     }
 
     try {
@@ -26,38 +27,44 @@ export const enhancePromptWithOpenAI = async (
                 messages: [
                     {
                         role: 'system',
-                        content: `You are a prompt engineer for image-to-video generation. The input image already contains the pet's appearance. Your job is ONLY to describe the MOVEMENT, not the pet's appearance.
+                        content: `You are a prompt engineer for image-to-video generation using RunwayML veo3.1_fast model.
 
-Rules:
-- Describe ONLY how the pet moves its body parts in the "${dance}" style
-- Do NOT describe the pet's appearance (the image handles that)
-- Do NOT mention colors, markings, species - these come from the input image
-- Focus purely on motion: which body parts move, how they move, the rhythm/pattern
-- Keep it under 50 words
-- Simple, clear language`
+CRITICAL REQUIREMENT: The pet in the output video MUST look IDENTICAL to the pet in the input image. Same species, same colors, same markings, same size, same features. Only the pet's MOVEMENT should change based on the dance.
+
+Your prompt must:
+1. Explicitly state that the pet is identical to the input image
+2. Describe the specific dance movements for "${dance}"
+3. Explain how the pet's body parts (paws, tail, head, body) move in the "${dance}" style
+4. Keep the description clear and focused (60-100 words)
+
+Format:
+"The exact pet from the input image, looking identical with the same appearance, performs [dance-specific movements]. The pet's [body parts] move in [dance style] patterns. [Specific dance movements]."
                     },
                     {
                         role: 'user',
-                        content: `Write a very short prompt (under 50 words) describing ONLY the movement for the "${dance}" dance.
+                        content: `Create a detailed prompt for a 5-second video where THE EXACT PET from the input image performs the "${dance}" dance.
 
-Describe: How the pet's body parts (paws, tail, head) move in "${dance}" style. The rhythm and pattern of movement. The energy level.
+REQUIREMENTS:
+- The pet must be IDENTICAL to the input image (same appearance, no transformation)
+- Describe the specific dance movements characteristic of "${dance}"
+- Explain how the pet's body parts move in "${dance}" style
+- Be specific about the movement patterns, rhythm, and energy
 
-Do NOT describe: The pet's appearance, colors, or species (the input image provides this).
+Example for "The Robot" dance:
+"The exact pet from the input image, looking identical with the same appearance and features, performs the robot dance. The pet moves in stiff, mechanical, robotic motions. Its paws lift and lower in sharp, angular movements. The head turns in precise, jerky rotations. The body moves in synchronized, mechanical steps while maintaining the pet's original appearance throughout."
 
-Example for "robot dance": "The pet moves in stiff, mechanical movements. Paws lift and lower rhythmically. Head turns in sharp angles. Body moves in robotic, jerky motions."
-
-Now write a similar prompt for "${dance}" - ONLY movement description.`
+Now write a detailed prompt for "${dance}" following this format - emphasizing the pet's identical appearance and the specific dance movements.`
                     }
                 ],
-                max_tokens: 100,
-                temperature: 0.7,
+                max_tokens: 150,
+                temperature: 0.8,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
             console.warn('OpenAI prompt enhancement failed, using base prompt:', errorData.message);
-            return `The pet moves its body in ${dance} style movements.`;
+            return `The exact pet from the input image, looking identical with the same appearance, performs the ${dance} dance. The pet's body moves in ${dance} style movements while maintaining its original appearance.`;
         }
 
         const data = await response.json();
@@ -71,7 +78,7 @@ Now write a similar prompt for "${dance}" - ONLY movement description.`
     }
 
     // Fallback to base prompt if anything goes wrong
-    // For image-to-video, we only describe movement - the image provides the appearance
-    return `The pet moves its body in ${dance} style movements.`;
+    // CRITICAL: Must emphasize pet is identical to input image
+    return `The exact pet from the input image, looking identical with the same appearance, performs the ${dance} dance. The pet's body moves in ${dance} style movements while maintaining its original appearance.`;
 };
 

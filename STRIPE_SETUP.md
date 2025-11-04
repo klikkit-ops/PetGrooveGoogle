@@ -40,15 +40,41 @@ This guide will help you set up Stripe subscriptions for PetGroove.
 3. Copy the **Price ID** (starts with `price_...`)
    - This is your `STRIPE_ANNUAL_PRICE_ID`
 
-### Trial Period Setup (for Weekly Plan)
+### Weekly Plan ($0.49 trial → $7.99/week)
 
-To set up the $0.49 trial:
-1. Go to your Weekly product
-2. Add a **Promotion code** or use Stripe Checkout's trial period feature
-3. Alternatively, create a separate one-time product for the trial:
+**IMPORTANT:** You need to create TWO products for the weekly plan:
+
+#### Step 1: Create the $0.49 Trial Product (One-time charge)
+
+1. Go to **Products → Add Product**
+2. Create product:
    - **Name:** "PetGroove Weekly Trial"
+   - **Description:** "7-day trial for Weekly Subscription"
+   - **Pricing model:** One-time
    - **Price:** $0.49 USD
-   - **Billing:** One-time
+   - Click **Save product**
+3. Copy the **Price ID** (starts with `price_...`)
+   - This is your `STRIPE_WEEKLY_TRIAL_PRICE_ID`
+
+#### Step 2: Create the $7.99/week Subscription Product
+
+1. Go to **Products → Add Product**
+2. Create product:
+   - **Name:** "PetGroove Weekly Subscription"
+   - **Description:** "Weekly subscription - 1000 credits/week (2 video generations)"
+   - **Pricing model:** Recurring
+   - **Price:** $7.99 USD
+   - **Billing period:** Weekly
+   - Click **Save product**
+3. Copy the **Price ID** (starts with `price_...`)
+   - This is your `STRIPE_WEEKLY_PRICE_ID`
+
+**How it works:**
+- Customer pays $0.49 immediately (trial product)
+- Subscription starts with 7-day trial period
+- After 7 days, Stripe charges $7.99/week automatically
+
+### Annual Plan ($69.99/year)
 
 ## Step 3: Set Up Stripe Webhook
 
@@ -75,7 +101,8 @@ Go to your Vercel project → **Settings → Environment Variables** and add:
 ```
 STRIPE_SECRET_KEY=sk_test_... (or sk_live_... for production)
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_... (or pk_live_... for production)
-STRIPE_WEEKLY_PRICE_ID=price_...
+STRIPE_WEEKLY_TRIAL_PRICE_ID=price_... (for $0.49 trial charge)
+STRIPE_WEEKLY_PRICE_ID=price_... (for $7.99/week subscription)
 STRIPE_ANNUAL_PRICE_ID=price_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```

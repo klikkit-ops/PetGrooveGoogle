@@ -19,17 +19,18 @@ export default async function handler(
 
     // Get API key from environment (server-side, no VITE_ prefix)
     // Note: Use RUNWAY_API_KEY in Vercel (not VITE_RUNWAY_API_KEY)
-    const apiKey = process.env.RUNWAY_API_KEY || process.env.RUNWAYML_API_KEY;
+    // The SDK looks for RUNWAYML_API_SECRET env var OR accepts apiKey option
+    const apiKey = process.env.RUNWAY_API_KEY || process.env.RUNWAYML_API_KEY || process.env.RUNWAYML_API_SECRET;
     if (!apiKey) {
       return res.status(500).json({ error: 'RunwayML API key not configured. Please set RUNWAY_API_KEY in Vercel environment variables.' });
     }
 
     // Initialize RunwayML client
-    // The SDK uses apiSecret according to RunwayML docs
+    // The SDK accepts apiKey option in constructor (as per error message)
     let client: RunwayML;
     try {
       client = new RunwayML({ 
-        apiSecret: apiKey,
+        apiKey: apiKey,
       });
     } catch (initError: any) {
       console.error('Failed to initialize RunwayML client:', initError);

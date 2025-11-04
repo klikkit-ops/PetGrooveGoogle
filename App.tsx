@@ -36,41 +36,27 @@ const App: React.FC = () => {
 
     // Load user session on mount and handle auth state changes
     useEffect(() => {
-        // Handle OAuth callback first
-        const handleOAuthCallback = async () => {
-            try {
-                // Check for OAuth hash fragments in URL
-                const { data: { session }, error } = await supabase.auth.getSession();
-                
-                if (session && !error) {
-                    // Session exists, now check for user profile
-                    const { user: currentUser, error: userError } = await getCurrentUser();
-                    if (currentUser && !userError) {
-                        setUser(currentUser);
-                        await loadUserData(currentUser.id);
-                        setLoading(false);
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.error('Error handling OAuth callback:', error);
-            }
-        };
-
         const loadUserSession = async () => {
             try {
                 setLoading(true);
                 
-                // First, handle any OAuth callback
-                await handleOAuthCallback();
+                // Check for existing session
+                const { data: { session } } = await supabase.auth.getSession();
                 
-                // Then check for existing session
-                const { user: currentUser, error } = await getCurrentUser();
-                
-                if (currentUser && !error) {
-                    setUser(currentUser);
-                    // Load user data
-                    await loadUserData(currentUser.id);
+                if (session?.user) {
+                    // Session exists, get user profile
+                    const { user: currentUser, error } = await getCurrentUser();
+                    
+                    if (currentUser && !error) {
+                        setUser(currentUser);
+                        await loadUserData(currentUser.id);
+                    } else {
+                        console.warn('Failed to get user profile:', error);
+                        // Clear session if profile can't be loaded
+                        if (error?.message?.includes('not found')) {
+                            await supabase.auth.signOut();
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error loading user session:', error);

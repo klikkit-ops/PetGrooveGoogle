@@ -9,8 +9,9 @@ export const enhancePromptWithOpenAI = async (
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
     // If OpenAI API key is not configured, return a base prompt
+    // For image-to-video, we only describe movement - the image provides the appearance
     if (!apiKey) {
-        return `A 5-second video of this pet performing the '${dance}' dance. The pet maintains its original appearance and natural anatomy. The pet uses its actual body parts (paws, tail, ears, etc.) to perform the specific movements characteristic of '${dance}'. The setting is fun and colorful, with smooth, natural movements showing the pet dancing.`;
+        return `The pet moves its body in ${dance} style movements.`;
     }
 
     try {
@@ -25,44 +26,38 @@ export const enhancePromptWithOpenAI = async (
                 messages: [
                     {
                         role: 'system',
-                        content: `You are a professional video prompt engineer specializing in AI video generation (gen4_turbo model). 
-Create detailed, specific prompts that will generate high-quality videos. CRITICAL RULES:
-- The pet MUST maintain its original appearance (species, color, size, features) throughout the video
-- The pet should PERFORM the dance movements, not transform or merge with dance elements
-- Describe the pet's actual body parts (paws, tail, ears, etc.) performing the dance movements
-- Focus on how the pet's natural anatomy executes the "${dance}" dance style
-- Visual details: lighting, colors, setting, atmosphere
-- Camera movement and framing
-- Pet's body language and expression while maintaining its original appearance
-- Smooth, natural motion that shows the pet dancing, not transforming
-Keep prompts under 150 words and optimized for portrait format (720:1280).`
+                        content: `You are a prompt engineer for image-to-video generation. The input image already contains the pet's appearance. Your job is ONLY to describe the MOVEMENT, not the pet's appearance.
+
+Rules:
+- Describe ONLY how the pet moves its body parts in the "${dance}" style
+- Do NOT describe the pet's appearance (the image handles that)
+- Do NOT mention colors, markings, species - these come from the input image
+- Focus purely on motion: which body parts move, how they move, the rhythm/pattern
+- Keep it under 50 words
+- Simple, clear language`
                     },
                     {
                         role: 'user',
-                        content: `Create a detailed, vivid prompt for generating a 5-second video of a pet performing the "${dance}" dance. 
+                        content: `Write a very short prompt (under 50 words) describing ONLY the movement for the "${dance}" dance.
 
-IMPORTANT: The pet must maintain its original appearance and natural anatomy. The pet should perform the "${dance}" dance movements using its actual body (paws, tail, ears, etc.), not transform into a hybrid creature. 
+Describe: How the pet's body parts (paws, tail, head) move in "${dance}" style. The rhythm and pattern of movement. The energy level.
 
-Describe:
-- How the pet's natural body parts execute the specific "${dance}" dance movements
-- The pet's energy and expression while performing the dance (maintaining its original appearance)
-- The setting, lighting, and atmosphere
-- The specific dance movements characteristic of "${dance}" that the pet will perform
+Do NOT describe: The pet's appearance, colors, or species (the input image provides this).
 
-Example for "robot dance": The pet should move its body in stiff, mechanical, robotic movements using its actual paws, tail, and head - not become part-robot.
+Example for "robot dance": "The pet moves in stiff, mechanical movements. Paws lift and lower rhythmically. Head turns in sharp angles. Body moves in robotic, jerky motions."
 
-Make it highly descriptive so the AI video generator creates a stunning video of the pet performing the dance, not transforming into something else.`
+Now write a similar prompt for "${dance}" - ONLY movement description.`
                     }
                 ],
-                max_tokens: 200,
-                temperature: 0.9,
+                max_tokens: 100,
+                temperature: 0.7,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
             console.warn('OpenAI prompt enhancement failed, using base prompt:', errorData.message);
-            return `A 5-second video of this pet performing the '${dance}' dance. The pet maintains its original appearance and natural anatomy. The pet uses its actual body parts (paws, tail, ears, etc.) to perform the specific movements characteristic of '${dance}'. The setting is fun and colorful, with smooth, natural movements showing the pet dancing.`;
+            return `The pet moves its body in ${dance} style movements.`;
         }
 
         const data = await response.json();
@@ -76,6 +71,7 @@ Make it highly descriptive so the AI video generator creates a stunning video of
     }
 
     // Fallback to base prompt if anything goes wrong
-    return `A 5-second video of this pet performing the '${dance}' dance. The pet maintains its original appearance and natural anatomy. The pet uses its actual body parts (paws, tail, ears, etc.) to perform the specific movements characteristic of '${dance}'. The setting is fun and colorful, with smooth, natural movements showing the pet dancing.`;
+    // For image-to-video, we only describe movement - the image provides the appearance
+    return `The pet moves its body in ${dance} style movements.`;
 };
 

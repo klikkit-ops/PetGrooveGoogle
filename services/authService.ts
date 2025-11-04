@@ -28,15 +28,30 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     });
 
     if (authError) {
-      // Check for duplicate email error
-      if (authError.message?.includes('already registered') || 
-          authError.message?.includes('already exists') ||
-          authError.message?.includes('already been registered')) {
+      // Check for duplicate email error - Supabase returns different error codes/messages
+      const errorMessage = authError.message?.toLowerCase() || '';
+      const errorCode = authError.status || authError.code || '';
+      
+      if (errorMessage.includes('already registered') || 
+          errorMessage.includes('already exists') ||
+          errorMessage.includes('already been registered') ||
+          errorMessage.includes('user already registered') ||
+          errorCode === 'email_already_exists' ||
+          errorCode === 'user_already_exists') {
         return { 
           user: null, 
           error: new Error('An account with this email already exists. Please sign in instead.') 
         };
       }
+      
+      // Log the actual error for debugging
+      console.error('Supabase signup error:', {
+        message: authError.message,
+        status: authError.status,
+        code: authError.code,
+        error: authError
+      });
+      
       return { user: null, error: authError };
     }
 
@@ -44,10 +59,12 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // For email signup, Supabase requires email confirmation
-    // The user profile will be created by the trigger, but we need to wait
-    // If email confirmation is required, the user won't be fully authenticated yet
-    // In that case, we should return success and let them confirm their email
+    // IMPORTANT: Check if the user was actually created or if this is a duplicate
+    // Supabase might return a user object even if the email already exists in some cases
+    // We should verify by checking if we can get a session or if the user needs confirmation
+    
+    // If email confirmation is required and no session exists, this is likely a new unconfirmed user
+    // If email confirmation is disabled and we have a session, the user was created successfully
     
     // Check if email confirmation is required
     if (authData.user && !authData.session) {

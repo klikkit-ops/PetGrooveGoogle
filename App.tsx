@@ -131,39 +131,8 @@ const App: React.FC = () => {
 
         loadUserSession();
 
-        // Listen for auth state changes (e.g., OAuth callback)
-        // Only handle SIGNED_IN and SIGNED_OUT - ignore TOKEN_REFRESHED and INITIAL_SESSION
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // Only handle actual sign in/out events, ignore everything else
-            if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') {
-                return;
-            }
-            
-            try {
-                console.log('Auth state changed:', event, session?.user?.id);
-                
-                if (event === 'SIGNED_IN' && session?.user) {
-                    // Only update if we don't already have a user (check ref to avoid closure issues)
-                    if (!userRef.current) {
-                        const { user: currentUser, error } = await getCurrentUser();
-                        if (currentUser && !error) {
-                            userRef.current = currentUser;
-                            setUser(currentUser);
-                            await loadUserData(currentUser.id);
-                        }
-                    }
-                } else if (event === 'SIGNED_OUT') {
-                    userRef.current = null;
-                    setUser(null);
-                    setCredits(0);
-                    setVideos([]);
-                }
-            } catch (error) {
-                console.error('Error handling auth state change:', error);
-            }
-        });
-
         // Listen for auth state changes (e.g., OAuth callback, sign out)
+        // Ignore INITIAL_SESSION and TOKEN_REFRESHED to prevent unnecessary reloads
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             // Ignore INITIAL_SESSION and TOKEN_REFRESHED to prevent unnecessary reloads
             if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {

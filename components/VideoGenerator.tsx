@@ -69,7 +69,7 @@ const VideoGenerator: React.FC = () => {
     }, [isLoading]);
 
     if (!context) return null;
-    const { credits, useCredit, addVideo } = context;
+    const { credits, useCredit, addVideo, setCurrentView } = context;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -88,8 +88,10 @@ const VideoGenerator: React.FC = () => {
 
     const handleGenerate = async () => {
         if (!imageFile || !apiKeySelected) return;
+        
+        // If user has no credits, redirect to account page
         if (credits < 500) {
-            setError(`You need 500 credits to generate a video. You currently have ${credits} credits. Please subscribe or purchase credits in the Account section.`);
+            setCurrentView('account');
             return;
         }
 

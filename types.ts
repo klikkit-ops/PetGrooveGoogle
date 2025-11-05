@@ -24,4 +24,5 @@ export interface AppContextType {
     addCredits: (amount: number) => void;
     useCredit: () => void;
     addVideo: (video: GeneratedVideo) => void;
+    setCurrentView: (view: View) => void;
 }

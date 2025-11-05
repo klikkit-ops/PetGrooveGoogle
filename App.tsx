@@ -258,7 +258,8 @@ const App: React.FC = () => {
         addCredits,
         useCredit,
         addVideo,
-    }), [user, credits, videos, handleLogin, handleLogout, addCredits, useCredit, addVideo]);
+        setCurrentView,
+    }), [user, credits, videos, handleLogin, handleLogout, addCredits, useCredit, addVideo, setCurrentView]);
 
     const renderView = () => {
         switch (currentView) {

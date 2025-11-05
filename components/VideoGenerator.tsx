@@ -208,7 +208,7 @@ const VideoGenerator: React.FC = () => {
                     ) : (
                         <button
                             onClick={handleGenerate}
-                            disabled={!imageFile || isLoading}
+                            disabled={credits >= 500 && (!imageFile || isLoading)}
                             className="w-full bg-gradient-to-r from-brand-purple to-brand-pink text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
                         >
                             {isLoading ? 'Generating...' : `Generate Video (500 Credits)`}

@@ -228,6 +228,7 @@ export const signOut = async (): Promise<{ error: Error | null }> => {
 
 /**
  * Get the current authenticated user
+ * Simplified version that doesn't hang on profile queries
  */
 export const getCurrentUser = async (): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
@@ -237,15 +238,21 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       return { user: null, error: authError || new Error('No authenticated user') };
     }
 
-    // Wait a moment for the database trigger to create the user profile (if it exists)
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Fetch user profile - use maybeSingle() to handle case where profile doesn't exist yet
-    const { data: profile, error: profileError } = await supabase
+    // Try to fetch profile with a timeout
+    const profilePromise = supabase
       .from('users')
       .select('*')
       .eq('id', authUser.id)
       .maybeSingle();
+
+    const timeoutPromise = new Promise((resolve) => 
+      setTimeout(() => resolve({ data: null, error: null }), 2000)
+    );
+
+    const { data: profile, error: profileError } = await Promise.race([
+      profilePromise,
+      timeoutPromise
+    ]) as { data: any; error: any };
 
     // If profile exists, return it
     if (profile && !profileError) {
@@ -259,10 +266,8 @@ export const getCurrentUser = async (): Promise<{ user: UserProfile | null; erro
       };
     }
 
-    // Profile doesn't exist yet - trigger should create it
-    // Return auth user info anyway so the app doesn't hang
-    // The profile will be available on next refresh or login
-    console.warn('Profile not found for user', authUser.id, '- trigger should create it. Returning auth user info.');
+    // Profile doesn't exist yet or query timed out - return auth user info anyway
+    // The trigger should create the profile, and it will be available on next load
     return {
       user: {
         id: authUser.id,

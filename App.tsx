@@ -62,19 +62,53 @@ const App: React.FC = () => {
                 }
                 
                 if (session?.user) {
-                    // Session exists, get user profile
-                    const { user: currentUser, error } = await getCurrentUser();
-                    
-                    if (!mounted) return;
-                    
-                    if (currentUser && !error) {
-                        userRef.current = currentUser;
-                        setUser(currentUser);
-                        await loadUserData(currentUser.id);
-                    } else {
-                        console.warn('Failed to get user profile:', error);
-                        userRef.current = null;
-                        setUser(null);
+                    // Session exists, get user profile with timeout
+                    try {
+                        const getUserPromise = getCurrentUser();
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout getting user')), 5000)
+                        );
+                        
+                        const { user: currentUser, error } = await Promise.race([
+                            getUserPromise,
+                            timeoutPromise
+                        ]) as { user: UserProfile | null; error: Error | null };
+                        
+                        if (!mounted) return;
+                        
+                        if (currentUser && !error) {
+                            userRef.current = currentUser;
+                            setUser(currentUser);
+                            await loadUserData(currentUser.id);
+                        } else {
+                            console.warn('Failed to get user profile:', error);
+                            // If there's an error but session exists, still set user from auth
+                            // This prevents hanging
+                            userRef.current = {
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            };
+                            setUser({
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            });
+                            await loadUserData(session.user.id);
+                        }
+                    } catch (error) {
+                        console.error('Error or timeout getting user:', error);
+                        if (!mounted) return;
+                        // On error/timeout, still proceed with auth user
+                        if (session.user) {
+                            userRef.current = {
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            };
+                            setUser({
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            });
+                            await loadUserData(session.user.id);
+                        }
                     }
                 } else {
                     // No session

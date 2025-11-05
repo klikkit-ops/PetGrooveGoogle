@@ -79,35 +79,40 @@ const App: React.FC = () => {
                         if (currentUser && !error) {
                             userRef.current = currentUser;
                             setUser(currentUser);
-                            await loadUserData(currentUser.id);
+                            // Don't await - load in background to prevent hanging
+                            loadUserData(currentUser.id).catch(err => {
+                                console.error('Error loading user data:', err);
+                            });
                         } else {
                             console.warn('Failed to get user profile:', error);
                             // If there's an error but session exists, still set user from auth
                             // This prevents hanging
-                            userRef.current = {
+                            const authUser = {
                                 id: session.user.id,
                                 email: session.user.email || '',
                             };
-                            setUser({
-                                id: session.user.id,
-                                email: session.user.email || '',
+                            userRef.current = authUser;
+                            setUser(authUser);
+                            // Don't await - load in background
+                            loadUserData(session.user.id).catch(err => {
+                                console.error('Error loading user data:', err);
                             });
-                            await loadUserData(session.user.id);
                         }
                     } catch (error) {
                         console.error('Error or timeout getting user:', error);
                         if (!mounted) return;
                         // On error/timeout, still proceed with auth user
                         if (session.user) {
-                            userRef.current = {
+                            const authUser = {
                                 id: session.user.id,
                                 email: session.user.email || '',
                             };
-                            setUser({
-                                id: session.user.id,
-                                email: session.user.email || '',
+                            userRef.current = authUser;
+                            setUser(authUser);
+                            // Don't await - load in background
+                            loadUserData(session.user.id).catch(err => {
+                                console.error('Error loading user data:', err);
                             });
-                            await loadUserData(session.user.id);
                         }
                     }
                 } else {

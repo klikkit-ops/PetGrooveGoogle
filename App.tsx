@@ -41,34 +41,77 @@ const App: React.FC = () => {
     useEffect(() => {
         let mounted = true;
 
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!mounted) return;
-            
-            if (session?.user) {
-                // User is logged in, fetch their profile
-                getCurrentUser().then(({ user: currentUser, error }) => {
-                    if (!mounted) return;
-                    
-                    if (currentUser && !error) {
-                        setUser(currentUser);
-                        loadUserData(currentUser.id);
-                    } else {
-                        // Fallback to auth user
-                        setUser({
-                            id: session.user.id,
-                            email: session.user.email || '',
-                        });
-                        loadUserData(session.user.id);
-                    }
-                    setLoading(false);
-                });
-            } else {
-                // No session
+        // Get initial session with timeout protection
+        const sessionTimeout = setTimeout(() => {
+            if (mounted) {
+                console.warn('Session check timed out, proceeding without session');
                 setUser(null);
                 setLoading(false);
             }
-        });
+        }, 5000);
+
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                clearTimeout(sessionTimeout);
+                if (!mounted) return;
+                
+                if (session?.user) {
+                    // User is logged in, fetch their profile with timeout
+                    const userTimeout = setTimeout(() => {
+                        if (mounted) {
+                            console.warn('User fetch timed out, using auth user');
+                            setUser({
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            });
+                            loadUserData(session.user.id);
+                            setLoading(false);
+                        }
+                    }, 3000);
+
+                    getCurrentUser()
+                        .then(({ user: currentUser, error }) => {
+                            clearTimeout(userTimeout);
+                            if (!mounted) return;
+                            
+                            if (currentUser && !error) {
+                                setUser(currentUser);
+                                loadUserData(currentUser.id);
+                            } else {
+                                // Fallback to auth user
+                                setUser({
+                                    id: session.user.id,
+                                    email: session.user.email || '',
+                                });
+                                loadUserData(session.user.id);
+                            }
+                            setLoading(false);
+                        })
+                        .catch((error) => {
+                            clearTimeout(userTimeout);
+                            console.error('Error getting current user:', error);
+                            if (!mounted) return;
+                            // Fallback to auth user on error
+                            setUser({
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            });
+                            loadUserData(session.user.id);
+                            setLoading(false);
+                        });
+                } else {
+                    // No session
+                    setUser(null);
+                    setLoading(false);
+                }
+            })
+            .catch((error) => {
+                clearTimeout(sessionTimeout);
+                console.error('Error getting session:', error);
+                if (!mounted) return;
+                setUser(null);
+                setLoading(false);
+            });
 
         // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {

@@ -21,12 +21,14 @@ export interface UserProfile {
  */
 export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
-    // First, check if a user with this email already exists in our users table
-    // This prevents duplicate signups even if Supabase allows it
+    // First, check if a user with this email already exists in public.users table
+    // Note: supabase.from('users') accesses public.users (not auth.users)
+    // auth.users is managed by Supabase Auth and is not accessible via .from()
+    // This prevents duplicate signups even if Supabase Auth allows it
     const normalizedEmail = data.email.toLowerCase().trim();
     
     const { data: existingProfile, error: checkError } = await supabase
-      .from('users')
+      .from('users') // This references public.users table
       .select('id, email')
       .eq('email', normalizedEmail)
       .maybeSingle();
@@ -78,12 +80,12 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // Double-check: After signup, verify no duplicate was created
+    // Double-check: After signup, verify no duplicate was created in public.users
     // Wait a moment for the trigger to create the profile
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const { data: profiles, error: verifyError } = await supabase
-      .from('users')
+      .from('users') // This references public.users table
       .select('id, email')
       .eq('email', normalizedEmail);
 

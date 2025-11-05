@@ -198,7 +198,10 @@ const App: React.FC = () => {
     const handleLogin = useCallback((loggedInUser: User) => {
         userRef.current = loggedInUser;
         setUser(loggedInUser);
-        loadUserData(loggedInUser.id);
+        setLoading(false); // Ensure loading is set to false when user logs in
+        loadUserData(loggedInUser.id).catch(err => {
+            console.error('Error loading user data:', err);
+        });
     }, [loadUserData]);
 
     const handleLogout = useCallback(async () => {

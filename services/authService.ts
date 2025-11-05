@@ -129,44 +129,6 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
   }
 };
 
-    // User is signed in (email confirmed or confirmation disabled)
-    // Wait for profile to be created by trigger
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .maybeSingle();
-
-    if (profile && !profileError) {
-      return {
-        user: {
-          id: profile.id,
-          email: profile.email,
-          name: profile.name || undefined,
-        },
-        error: null,
-      };
-    }
-
-    // Profile not found yet, but user is authenticated
-    // Return auth user info - profile will be created by trigger
-    return {
-      user: {
-        id: authData.user.id,
-        email: normalizedEmail,
-      },
-      error: null,
-    };
-  } catch (error) {
-    return {
-      user: null,
-      error: error instanceof Error ? error : new Error('Unknown error during signup'),
-    };
-  }
-};
-
 /**
  * Sign in an existing user
  * Properly handles email confirmation errors

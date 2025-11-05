@@ -158,6 +158,51 @@ const App: React.FC = () => {
             }
         });
 
+        // Listen for auth state changes (e.g., OAuth callback, sign out)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // Ignore INITIAL_SESSION and TOKEN_REFRESHED to prevent unnecessary reloads
+            if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+                return;
+            }
+            
+            try {
+                if (event === 'SIGNED_IN' && session?.user) {
+                    // Only update if we don't already have a user
+                    if (!userRef.current) {
+                        setLoading(true);
+                        const { user: currentUser, error } = await getCurrentUser();
+                        if (currentUser && !error) {
+                            userRef.current = currentUser;
+                            setUser(currentUser);
+                            loadUserData(currentUser.id).catch(err => {
+                                console.error('Error loading user data:', err);
+                            });
+                        } else if (session.user) {
+                            // Fallback to auth user
+                            const authUser = {
+                                id: session.user.id,
+                                email: session.user.email || '',
+                            };
+                            userRef.current = authUser;
+                            setUser(authUser);
+                            loadUserData(session.user.id).catch(err => {
+                                console.error('Error loading user data:', err);
+                            });
+                        }
+                        setLoading(false);
+                    }
+                } else if (event === 'SIGNED_OUT') {
+                    userRef.current = null;
+                    setUser(null);
+                    setCredits(0);
+                    setVideos([]);
+                }
+            } catch (error) {
+                console.error('Error handling auth state change:', error);
+                setLoading(false);
+            }
+        });
+
         return () => {
             mounted = false;
             subscription.unsubscribe();

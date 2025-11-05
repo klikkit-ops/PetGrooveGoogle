@@ -68,13 +68,66 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // If email confirmation is required and no session exists, user needs to confirm email
+    // Check if email confirmation is required
+    // If there's no session, it could mean:
+    // 1. Email confirmation is required (new user)
+    // 2. Email already exists in auth.users (duplicate)
+    // To distinguish, check if user was just created by checking if email_confirmed_at is null
     if (!authData.session) {
+      // If email_confirmed_at is null, it's a new unconfirmed user
+      // If email_confirmed_at exists, it means the email already exists (Supabase returned existing user)
+      if (authData.user.email_confirmed_at) {
+        // Email already exists and is confirmed - they should sign in
+        return {
+          user: null,
+          error: new Error('An account with this email already exists. Please sign in instead.'),
+        };
+      }
+      
+      // New user needs email confirmation
       return {
         user: null,
         error: new Error('Please check your email to confirm your account before signing in.'),
       };
     }
+
+    // User is signed in (email confirmed or confirmation disabled)
+    // Wait for profile to be created by trigger
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (profile && !profileError) {
+      return {
+        user: {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name || undefined,
+        },
+        error: null,
+      };
+    }
+
+    // Profile not found yet, but user is authenticated
+    // Return auth user info - profile will be created by trigger
+    return {
+      user: {
+        id: authData.user.id,
+        email: normalizedEmail,
+      },
+      error: null,
+    };
+  } catch (error) {
+    return {
+      user: null,
+      error: error instanceof Error ? error : new Error('Unknown error during signup'),
+    };
+  }
+};
 
     // User is signed in (email confirmed or confirmation disabled)
     // Wait for profile to be created by trigger

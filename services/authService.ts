@@ -34,7 +34,7 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       .maybeSingle();
 
     if (existingProfile && !checkError) {
-      // User already exists - prevent signup
+      // User already exists in public.users - prevent signup
       console.warn('Attempted signup with existing email:', normalizedEmail);
       return { 
         user: null, 
@@ -42,45 +42,9 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       };
     }
 
-    // Also check auth.users by attempting to sign in with a dummy password
-    // This is a workaround since we can't directly query auth.users
-    // Only proceed if we're confident the email doesn't exist
-    const { error: signInCheckError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password: 'DUMMY_CHECK_' + Date.now() + '_' + Math.random(), // Unique dummy password
-    });
-
-    if (signInCheckError) {
-      const errorMsg = signInCheckError.message?.toLowerCase() || '';
-      
-      // Only block if we're CERTAIN the email exists
-      // "Invalid login credentials" typically means email exists but password is wrong
-      // But we need to be careful - some Supabase configs might return this for non-existent emails too
-      // So we'll only block if we get a very specific error that indicates email exists
-      if (errorMsg.includes('email not confirmed') || 
-          errorMsg.includes('email address not confirmed') ||
-          errorMsg.includes('invalid login credentials') && errorMsg.includes('email')) {
-        // Email likely exists in auth.users - prevent signup
-        console.warn('Attempted signup with existing email in auth.users:', normalizedEmail, 'Error:', signInCheckError.message);
-        return { 
-          user: null, 
-          error: new Error('An account with this email already exists. Please sign in instead.') 
-        };
-      }
-      // For other errors (like "Invalid login credentials" without email mention, 
-      // or "User not found", etc.), we'll proceed with signup
-      // This is safer than blocking legitimate signups
-    } else {
-      // If signIn somehow succeeds (very unlikely with dummy password), 
-      // that means email exists - sign out and prevent signup
-      await supabase.auth.signOut();
-      return { 
-        user: null, 
-        error: new Error('An account with this email already exists. Please sign in instead.') 
-      };
-    }
-
     // Sign up with Supabase Auth
+    // Supabase Auth will handle duplicate detection for auth.users
+    // We've already checked public.users above
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: data.password,

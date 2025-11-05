@@ -87,13 +87,13 @@ const VideoGenerator: React.FC = () => {
     };
 
     const handleGenerate = async () => {
-        if (!imageFile || !apiKeySelected) return;
-        
-        // If user has no credits, redirect to account page
+        // If user has no credits, redirect to account page immediately
         if (credits < 500) {
             setCurrentView('account');
             return;
         }
+        
+        if (!imageFile || !apiKeySelected) return;
 
         setIsLoading(true);
         setGeneratedVideoUrl('');

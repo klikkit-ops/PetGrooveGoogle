@@ -50,8 +50,16 @@ const App: React.FC = () => {
                 sessionLoaded = true;
                 setLoading(true);
                 
-                // Check for existing session
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                // Check for existing session with timeout
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Session timeout')), 10000)
+                );
+                
+                const { data: { session }, error: sessionError } = await Promise.race([
+                    sessionPromise,
+                    timeoutPromise
+                ]) as { data: { session: any }; error: any };
                 
                 if (!mounted) return;
                 
@@ -65,13 +73,13 @@ const App: React.FC = () => {
                     // Session exists, get user profile with timeout
                     try {
                         const getUserPromise = getCurrentUser();
-                        const timeoutPromise = new Promise((_, reject) => 
+                        const getUserTimeoutPromise = new Promise((_, reject) => 
                             setTimeout(() => reject(new Error('Timeout getting user')), 5000)
                         );
                         
                         const { user: currentUser, error } = await Promise.race([
                             getUserPromise,
-                            timeoutPromise
+                            getUserTimeoutPromise
                         ]) as { user: UserProfile | null; error: Error | null };
                         
                         if (!mounted) return;
@@ -122,6 +130,10 @@ const App: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Error loading user session:', error);
+                // On timeout or error, set loading to false
+                if (mounted) {
+                    setLoading(false);
+                }
             } finally {
                 if (mounted) {
                     setLoading(false);

@@ -18,24 +18,21 @@ export interface UserProfile {
 
 /**
  * Sign up a new user
+ * Returns user only if email confirmation is disabled or user is already confirmed
+ * Otherwise returns null user with a message about email confirmation
  */
 export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
-    // First, check if a user with this email already exists in public.users table
-    // Note: supabase.from('users') accesses public.users (not auth.users)
-    // auth.users is managed by Supabase Auth and is not accessible via .from()
-    // This prevents duplicate signups even if Supabase Auth allows it
     const normalizedEmail = data.email.toLowerCase().trim();
     
+    // Check if user already exists in public.users
     const { data: existingProfile, error: checkError } = await supabase
-      .from('users') // This references public.users table
+      .from('users')
       .select('id, email')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
     if (existingProfile && !checkError) {
-      // User already exists in public.users - prevent signup
-      console.warn('Attempted signup with existing email:', normalizedEmail);
       return { 
         user: null, 
         error: new Error('An account with this email already exists. Please sign in instead.') 
@@ -43,15 +40,12 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
     }
 
     // Sign up with Supabase Auth
-    // Supabase Auth will handle duplicate detection for auth.users
-    // We've already checked public.users above
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: data.password,
     });
 
     if (authError) {
-      // Check for duplicate email error - Supabase returns different error codes/messages
       const errorMessage = authError.message?.toLowerCase() || '';
       const errorCode = authError.status || authError.code || '';
       
@@ -67,14 +61,6 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
         };
       }
       
-      // Log the actual error for debugging
-      console.error('Supabase signup error:', {
-        message: authError.message,
-        status: authError.status,
-        code: authError.code,
-        error: authError
-      });
-      
       return { user: null, error: authError };
     }
 
@@ -82,85 +68,37 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to create user') };
     }
 
-    // Double-check: After signup, verify no duplicate was created in public.users
-    // Wait a moment for the trigger to create the profile
+    // If email confirmation is required and no session exists, user needs to confirm email
+    if (!authData.session) {
+      return {
+        user: null,
+        error: new Error('Please check your email to confirm your account before signing in.'),
+      };
+    }
+
+    // User is signed in (email confirmed or confirmation disabled)
+    // Wait for profile to be created by trigger
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const { data: profiles, error: verifyError } = await supabase
-      .from('users') // This references public.users table
-      .select('id, email')
-      .eq('email', normalizedEmail);
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .maybeSingle();
 
-    // If multiple profiles exist, this is a problem
-    if (!verifyError && profiles && profiles.length > 1) {
-      console.error('Duplicate user detected after signup:', {
-        newUserId: authData.user.id,
-        existingProfiles: profiles,
-        email: normalizedEmail
-      });
-      // Sign out the new user since a duplicate was created
-      await supabase.auth.signOut();
-      return { 
-        user: null, 
-        error: new Error('An account with this email already exists. Please sign in instead.') 
-      };
-    }
-
-    // Check if email confirmation is required
-    if (authData.user && !authData.session) {
-      // Email confirmation required - return success with user info
-      // The profile will be created by the trigger, and they can fetch it after confirming email
+    if (profile && !profileError) {
       return {
         user: {
-          id: authData.user.id,
-          email: normalizedEmail,
+          id: profile.id,
+          email: profile.email,
+          name: profile.name || undefined,
         },
         error: null,
       };
     }
 
-    // If session exists (email already confirmed or confirmation disabled),
-    // wait for the database trigger to create the user profile
-    // Retry multiple times as the trigger might take a moment to execute
-    let profile = null;
-    let profileError = null;
-    const maxRetries = 5;
-    
-    for (let i = 0; i < maxRetries; i++) {
-      await new Promise(resolve => setTimeout(resolve, 500 + (i * 200))); // Increasing delays
-      
-      // Try to fetch the profile
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
-        
-      if (data && !error) {
-        profile = data;
-        break;
-      }
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        profileError = error;
-      }
-    }
-
-    // If profile wasn't found, that's okay - it might be created by the trigger later
-    // Or RLS might be blocking the query temporarily
-    // Since auth signup succeeded, return success
-    // The profile will be available when they log in
-    if (!profile) {
-      console.warn('Profile not found immediately after signup, but auth user was created. Profile will be available after login.');
-      // Return success anyway - the trigger will create the profile
-      return {
-        user: {
-          id: authData.user.id,
-          email: normalizedEmail,
-        },
-        error: null,
-      };
-    }
-
+    // Profile not found yet, but user is authenticated
+    // Return auth user info - profile will be created by trigger
     return {
       user: {
         id: authData.user.id,
@@ -178,15 +116,31 @@ export const signUp = async (data: SignUpData): Promise<{ user: UserProfile | nu
 
 /**
  * Sign in an existing user
+ * Properly handles email confirmation errors
  */
 export const signIn = async (data: SignInData): Promise<{ user: UserProfile | null; error: Error | null }> => {
   try {
+    const normalizedEmail = data.email.toLowerCase().trim();
+    
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: data.email,
+      email: normalizedEmail,
       password: data.password,
     });
 
     if (authError) {
+      // Check for email confirmation error
+      const errorMessage = authError.message?.toLowerCase() || '';
+      
+      if (errorMessage.includes('email not confirmed') || 
+          errorMessage.includes('email address not confirmed') ||
+          errorMessage.includes('signup_disabled')) {
+        return { 
+          user: null, 
+          error: new Error('Please check your email and confirm your account before signing in.') 
+        };
+      }
+      
+      // Return the original error for other cases
       return { user: null, error: authError };
     }
 
@@ -194,22 +148,33 @@ export const signIn = async (data: SignInData): Promise<{ user: UserProfile | nu
       return { user: null, error: new Error('Failed to sign in') };
     }
 
+    // Wait a moment for profile to be available
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Fetch user profile
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle() to handle missing profiles gracefully
 
-    if (profileError || !profile) {
-      return { user: null, error: profileError || new Error('User profile not found') };
+    if (profile && !profileError) {
+      return {
+        user: {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name || undefined,
+        },
+        error: null,
+      };
     }
 
+    // Profile doesn't exist - trigger should create it
+    // Return auth user info so app doesn't hang
     return {
       user: {
-        id: profile.id,
-        email: profile.email,
-        name: profile.name || undefined,
+        id: authData.user.id,
+        email: authData.user.email || normalizedEmail,
       },
       error: null,
     };
